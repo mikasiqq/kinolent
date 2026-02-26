@@ -10,6 +10,7 @@ import type {
   ScheduleMetrics,
 } from "@/types/schedule";
 import { movieStore } from "./movieStore";
+import { generateScheduleViaWs, checkHealth } from "@/services/api";
 
 /** Демо-залы */
 const DEMO_HALLS: HallConfig[] = [
@@ -261,55 +262,93 @@ class ScheduleStore {
     if (hall) hall.enabled = !hall.enabled;
   }
 
-  /** Генерация расписания (имитация) */
+  /** Генерация расписания через реальный бэкенд (WebSocket) */
   async generateSchedule() {
     this.generationStatus = "generating";
     this.generationProgress = 0;
     this.generationSteps = [
-      {
-        label: "Инициализация",
-        description: "Подготовка данных и параметров",
-        status: "active",
-      },
-      {
-        label: "Генерация столбцов",
-        description: "Column Generation — поиск допустимых расписаний залов",
-        status: "pending",
-      },
-      {
-        label: "LP-релаксация",
-        description: "Решение линейной релаксации мастер-задачи",
-        status: "pending",
-      },
-      {
-        label: "Целочисленное решение",
-        description: "MILP — получение финального расписания",
-        status: "pending",
-      },
-      {
-        label: "Пост-обработка",
-        description: "Расчёт прогнозов и метрик качества",
-        status: "pending",
-      },
+      { label: "Инициализация", description: "Подготовка данных и параметров", status: "active" },
+      { label: "Генерация столбцов", description: "Column Generation — поиск допустимых расписаний залов", status: "pending" },
+      { label: "LP-релаксация", description: "Решение линейной релаксации мастер-задачи", status: "pending" },
+      { label: "Целочисленное решение", description: "MILP — получение финального расписания", status: "pending" },
+      { label: "Пост-обработка", description: "Расчёт прогнозов и метрик качества", status: "pending" },
     ];
 
+    // Проверяем доступность бэкенда
+    const backendAvailable = await checkHealth();
+
+    if (!backendAvailable) {
+      // Fallback: демо-режим (если бэкенд не запущен)
+      console.warn("Backend unavailable — using demo schedule");
+      await this._runDemoFallback();
+      return;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      this._cancelGeneration = generateScheduleViaWs(
+        this.config,
+        movieStore.movies,
+        {
+          onStep: (steps, progress) => {
+            runInAction(() => {
+              this.generationSteps = steps;
+              this.generationProgress = progress;
+            });
+          },
+          onDone: (schedule) => {
+            runInAction(() => {
+              this.schedules.unshift(schedule);
+              this.currentScheduleId = schedule.id;
+              this.selectedDay = 0;
+              this.generationStatus = "completed";
+              this.generationProgress = 100;
+              this.generationSteps = this.generationSteps.map((s) => ({
+                ...s,
+                status: "completed" as const,
+              }));
+            });
+            resolve();
+          },
+          onError: (message) => {
+            runInAction(() => {
+              this.generationStatus = "error";
+              this.generationSteps = this.generationSteps.map((s) =>
+                s.status === "active" ? { ...s, status: "error" as const } : s,
+              );
+            });
+            console.error("Generation error:", message);
+            reject(new Error(message));
+          },
+        },
+      );
+    }).catch(() => {
+      // Ошибки уже обработаны в onError
+    });
+  }
+
+  private _cancelGeneration: (() => void) | null = null;
+
+  /** Отменить текущую генерацию */
+  cancelGeneration() {
+    if (this._cancelGeneration) {
+      this._cancelGeneration();
+      this._cancelGeneration = null;
+    }
+    runInAction(() => {
+      this.generationStatus = "idle";
+      this.generationProgress = 0;
+      this.generationSteps = [];
+    });
+  }
+
+  /** Демо-режим (fallback когда бэкенд недоступен) */
+  private async _runDemoFallback() {
     try {
-      // Шаг 1: Инициализация
       await this.simulateStep(0, 15);
-
-      // Шаг 2: Column Generation
       await this.simulateStep(1, 40);
-
-      // Шаг 3: LP
       await this.simulateStep(2, 25);
-
-      // Шаг 4: MILP
       await this.simulateStep(3, 15);
-
-      // Шаг 5: Пост-обработка
       await this.simulateStep(4, 5);
-
-      // Результат
       const schedule = generateDemoSchedule(this.config);
       runInAction(() => {
         this.schedules.unshift(schedule);
@@ -319,9 +358,7 @@ class ScheduleStore {
         this.generationProgress = 100;
       });
     } catch {
-      runInAction(() => {
-        this.generationStatus = "error";
-      });
+      runInAction(() => { this.generationStatus = "error"; });
     }
   }
 
