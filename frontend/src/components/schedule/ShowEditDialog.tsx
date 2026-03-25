@@ -4,7 +4,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -151,7 +150,7 @@ export const ShowEditDialog = observer(function ShowEditDialog({
         onOpenChange(o);
       }}
     >
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Film className="h-5 w-5 text-emerald-500" />
@@ -270,30 +269,39 @@ export const ShowEditDialog = observer(function ShowEditDialog({
           </div>
         )}
 
-        <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-2">
+        <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-2 pt-2">
           <Button
             type="button"
-            variant={confirmDelete ? "destructive" : "outline"}
+            variant="outline"
             onClick={handleDelete}
-            className="gap-1.5"
+            className={cn(
+              "gap-1.5 w-full sm:w-auto",
+              confirmDelete
+                ? "bg-red-600 text-white border-red-600 hover:bg-red-700 hover:text-white"
+                : "text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-800/40 dark:text-red-400 dark:hover:bg-red-900/20",
+            )}
           >
             <Trash2 className="h-4 w-4" />
             {confirmDelete ? "Подтвердить удаление" : "Удалить сеанс"}
           </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="flex-1 sm:flex-initial"
+            >
               Отмена
             </Button>
             <Button
               disabled={!hasChanges || !!overlapError}
               onClick={handleSave}
-              className="bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 gap-1.5"
+              className="flex-1 sm:flex-initial bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 gap-1.5"
             >
               <Save className="h-4 w-4" />
               Сохранить
             </Button>
           </div>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
