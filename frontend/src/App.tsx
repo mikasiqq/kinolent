@@ -1,11 +1,12 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/layouts/AppLayout";
 import { DashboardPage } from "@/pages/DashboardPage";
-import { MoviesPage } from "@/pages/MoviesPage";
-import { SchedulePage } from "@/pages/SchedulePage";
 import { GenerateSchedulePage } from "@/pages/GenerateSchedulePage";
 import { LoginPage } from "@/pages/LoginPage";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { MoviesPage } from "@/pages/MoviesPage";
+import { SchedulePage } from "@/pages/SchedulePage";
+import { UsersPage } from "@/pages/UsersPage";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 function App() {
   return (
@@ -18,6 +19,9 @@ function App() {
             <Route path="/movies" element={<MoviesPage />} />
             <Route path="/schedule" element={<SchedulePage />} />
             <Route path="/generate" element={<GenerateSchedulePage />} />
+            <Route element={<ProtectedRoute requiredRole="admin" />}>
+              <Route path="/users" element={<UsersPage />} />
+            </Route>
           </Route>
         </Route>
       </Routes>

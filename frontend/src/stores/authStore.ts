@@ -1,5 +1,5 @@
-import { makeAutoObservable, runInAction } from "mobx";
 import type { User, UserRole } from "@/types/user";
+import { makeAutoObservable, runInAction } from "mobx";
 
 const ACCESS_KEY = "kinolent_access_token";
 const REFRESH_KEY = "kinolent_refresh_token";
@@ -30,7 +30,8 @@ class AuthStore {
   can(action: "view" | "manage" | "admin"): boolean {
     if (!this.user) return false;
     if (action === "view") return true; // все авторизованные
-    if (action === "manage") return this.user.role === "admin" || this.user.role === "manager";
+    if (action === "manage")
+      return this.user.role === "admin" || this.user.role === "manager";
     if (action === "admin") return this.user.role === "admin";
     return false;
   }
@@ -53,7 +54,9 @@ class AuthStore {
   async init() {
     const token = this.getAccessToken();
     if (!token) {
-      runInAction(() => { this.isInitialized = true; });
+      runInAction(() => {
+        this.isInitialized = true;
+      });
       return;
     }
     try {
@@ -69,10 +72,14 @@ class AuthStore {
       } else {
         // Пробуем refresh
         await this._tryRefresh();
-        runInAction(() => { this.isInitialized = true; });
+        runInAction(() => {
+          this.isInitialized = true;
+        });
       }
     } catch {
-      runInAction(() => { this.isInitialized = true; });
+      runInAction(() => {
+        this.isInitialized = true;
+      });
     }
   }
 
@@ -85,8 +92,14 @@ class AuthStore {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken }),
       });
-      if (!res.ok) { this._clearTokens(); return false; }
-      const tokens = (await res.json()) as { accessToken: string; refreshToken: string };
+      if (!res.ok) {
+        this._clearTokens();
+        return false;
+      }
+      const tokens = (await res.json()) as {
+        accessToken: string;
+        refreshToken: string;
+      };
       this._saveTokens(tokens.accessToken, tokens.refreshToken);
       // Fetch user info
       const meRes = await fetch(`${API_BASE}/api/auth/me`, {
@@ -94,10 +107,14 @@ class AuthStore {
       });
       if (meRes.ok) {
         const user = (await meRes.json()) as User;
-        runInAction(() => { this.user = user; });
+        runInAction(() => {
+          this.user = user;
+        });
         return true;
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     this._clearTokens();
     return false;
   }
@@ -115,7 +132,10 @@ class AuthStore {
         const data = (await res.json()) as { detail?: string };
         throw new Error(data.detail ?? "Ошибка входа");
       }
-      const tokens = (await res.json()) as { accessToken: string; refreshToken: string };
+      const tokens = (await res.json()) as {
+        accessToken: string;
+        refreshToken: string;
+      };
       this._saveTokens(tokens.accessToken, tokens.refreshToken);
 
       const meRes = await fetch(`${API_BASE}/api/auth/me`, {
@@ -137,7 +157,9 @@ class AuthStore {
 
   logout() {
     this._clearTokens();
-    runInAction(() => { this.user = null; });
+    runInAction(() => {
+      this.user = null;
+    });
     // Опционально: вызвать /api/auth/logout
     fetch(`${API_BASE}/api/auth/logout`, { method: "POST" }).catch(() => {});
   }

@@ -1,30 +1,40 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { authStore } from "@/stores/authStore";
+import { ROLE_COLORS, ROLE_LABELS } from "@/types/user";
 import {
+  CalendarDays,
+  Clapperboard,
   Film,
   LayoutDashboard,
-  CalendarDays,
-  Sparkles,
-  Clapperboard,
-  Menu,
-  X,
   LogOut,
+  Menu,
+  Sparkles,
+  Users,
+  X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useState } from "react";
 import { observer } from "mobx-react";
-import { authStore } from "@/stores/authStore";
-import { ROLE_LABELS, ROLE_COLORS } from "@/types/user";
+import { useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Дашборд" },
   { to: "/movies", icon: Film, label: "Фильмы" },
   { to: "/schedule", icon: CalendarDays, label: "Расписание" },
   { to: "/generate", icon: Sparkles, label: "Генерация" },
 ];
 
+const ADMIN_NAV_ITEMS = [
+  { to: "/users", icon: Users, label: "Пользователи" },
+];
+
 export const AppLayout = observer(function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+
+  const navItems = [
+    ...BASE_NAV_ITEMS,
+    ...(authStore.can("admin") ? ADMIN_NAV_ITEMS : []),
+  ];
 
   function handleLogout() {
     authStore.logout();
@@ -54,7 +64,7 @@ export const AppLayout = observer(function AppLayout() {
 
           {/* Навигация десктоп */}
           <nav className="hidden md:flex items-center gap-1 rounded-2xl border border-border/50 bg-muted/30 p-1">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -79,8 +89,15 @@ export const AppLayout = observer(function AppLayout() {
             {authStore.user && (
               <div className="flex items-center gap-2">
                 <div className="text-right">
-                  <p className="text-sm font-medium text-foreground leading-none">{authStore.user.name}</p>
-                  <p className={cn("text-xs leading-none mt-0.5", ROLE_COLORS[authStore.user.role])}>
+                  <p className="text-sm font-medium text-foreground leading-none">
+                    {authStore.user.name}
+                  </p>
+                  <p
+                    className={cn(
+                      "text-xs leading-none mt-0.5",
+                      ROLE_COLORS[authStore.user.role],
+                    )}
+                  >
                     {ROLE_LABELS[authStore.user.role]}
                   </p>
                 </div>
@@ -112,7 +129,7 @@ export const AppLayout = observer(function AppLayout() {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-border/40 bg-background/95 backdrop-blur-xl">
             <nav className="container mx-auto flex flex-col gap-1 px-4 py-3">
-              {NAV_ITEMS.map((item) => (
+              {navItems.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}

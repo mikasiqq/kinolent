@@ -1,13 +1,15 @@
-import { observer } from "mobx-react";
-import { Navigate, Outlet } from "react-router-dom";
 import { authStore } from "@/stores/authStore";
 import type { UserRole } from "@/types/user";
+import { observer } from "mobx-react";
+import { Navigate, Outlet } from "react-router-dom";
 
 interface Props {
   requiredRole?: UserRole | "manager+"; // "manager+" = manager или admin
 }
 
-export const ProtectedRoute = observer(function ProtectedRoute({ requiredRole }: Props) {
+export const ProtectedRoute = observer(function ProtectedRoute({
+  requiredRole,
+}: Props) {
   if (!authStore.isInitialized) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

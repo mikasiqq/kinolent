@@ -39,7 +39,9 @@ function jsonHeaders(): Record<string, string> {
 
 function wsUrl(): string {
   const token = localStorage.getItem("kinolent_access_token");
-  return token ? `${WS_BASE}/ws/generate?token=${token}` : `${WS_BASE}/ws/generate`;
+  return token
+    ? `${WS_BASE}/ws/generate?token=${token}`
+    : `${WS_BASE}/ws/generate`;
 }
 
 // ── Типы ответов API ──────────────────────────────────────────────────────────
@@ -389,7 +391,10 @@ export async function toggleMovieApi(id: string): Promise<Movie> {
 }
 
 export async function deleteMovieApi(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/movies/${id}`, { method: "DELETE", headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/api/movies/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`deleteMovie: ${res.status}`);
 }
 
@@ -430,14 +435,19 @@ export async function updateHallApi(
 }
 
 export async function deleteHallApi(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/halls/${id}`, { method: "DELETE", headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/api/halls/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`deleteHall: ${res.status}`);
 }
 
 // ── Schedules persistence ─────────────────────────────────────────────────────
 
 export async function fetchSchedulesFromDb(): Promise<CinemaSchedule[]> {
-  const res = await fetch(`${API_BASE}/api/schedules`, { headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/api/schedules`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`fetchSchedules: ${res.status}`);
   return res.json() as Promise<CinemaSchedule[]>;
 }
@@ -469,4 +479,48 @@ export async function deleteScheduleFromDb(id: string): Promise<void> {
   });
   if (!res.ok && res.status !== 404)
     throw new Error(`deleteSchedule: ${res.status}`);
+}
+
+// ── Users API ─────────────────────────────────────────────────────────────────
+
+export async function fetchUsers(): Promise<unknown[]> {
+  const res = await fetch(`${API_BASE}/api/users`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`fetchUsers: ${res.status}`);
+  return res.json();
+}
+
+export async function createUserApi(data: {
+  email: string;
+  name: string;
+  password: string;
+  role: string;
+}): Promise<unknown> {
+  const res = await fetch(`${API_BASE}/api/users`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`createUser: ${res.status}`);
+  return res.json();
+}
+
+export async function updateUserApi(
+  id: string,
+  data: { name: string; role: string; isActive: boolean }
+): Promise<unknown> {
+  const res = await fetch(`${API_BASE}/api/users/${id}`, {
+    method: "PUT",
+    headers: jsonHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`updateUser: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteUserApi(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/users/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok && res.status !== 404) throw new Error(`deleteUser: ${res.status}`);
 }

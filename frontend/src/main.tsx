@@ -1,6 +1,6 @@
+import { authStore } from "@/stores/authStore";
 import { movieStore } from "@/stores/movieStore";
 import { scheduleStore } from "@/stores/scheduleStore";
-import { authStore } from "@/stores/authStore";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";

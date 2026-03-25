@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { observer } from "mobx-react";
-import { Clapperboard, Eye, EyeOff, LogIn } from "lucide-react";
 import { authStore } from "@/stores/authStore";
+import { Clapperboard, Eye, EyeOff, LogIn } from "lucide-react";
+import { observer } from "mobx-react";
+import { useState } from "react";
 
 export const LoginPage = observer(function LoginPage() {
   const [email, setEmail] = useState("admin@kinolent.ru");
@@ -40,18 +40,26 @@ export const LoginPage = observer(function LoginPage() {
               Кинолент
             </span>
           </div>
-          <p className="text-muted-foreground text-sm">Генератор расписания кинотеатра</p>
+          <p className="text-muted-foreground text-sm">
+            Генератор расписания кинотеатра
+          </p>
         </div>
 
         {/* Карточка */}
         <div className="bg-card border border-border/50 rounded-2xl p-8 shadow-2xl shadow-black/20">
-          <h1 className="text-xl font-semibold text-foreground mb-1">Вход в систему</h1>
-          <p className="text-sm text-muted-foreground mb-6">Введите ваши учётные данные</p>
+          <h1 className="text-xl font-semibold text-foreground mb-1">
+            Вход в систему
+          </h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            Введите ваши учётные данные
+          </p>
 
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
             {/* Email */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground/80">Email</label>
+              <label className="text-sm font-medium text-foreground/80">
+                Email
+              </label>
               <input
                 type="email"
                 value={email}
@@ -65,7 +73,9 @@ export const LoginPage = observer(function LoginPage() {
 
             {/* Password */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground/80">Пароль</label>
+              <label className="text-sm font-medium text-foreground/80">
+                Пароль
+              </label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -81,7 +91,11 @@ export const LoginPage = observer(function LoginPage() {
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -111,7 +125,9 @@ export const LoginPage = observer(function LoginPage() {
           {/* Подсказка */}
           <div className="mt-5 pt-5 border-t border-border/40">
             <p className="text-xs text-muted-foreground/60 text-center">
-              По умолчанию: <span className="text-muted-foreground">admin@kinolent.ru</span> / <span className="text-muted-foreground">admin123</span>
+              По умолчанию:{" "}
+              <span className="text-muted-foreground">admin@kinolent.ru</span> /{" "}
+              <span className="text-muted-foreground">admin123</span>
             </p>
           </div>
         </div>
