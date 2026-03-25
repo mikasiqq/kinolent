@@ -26,6 +26,22 @@ const API_BASE =
 
 const WS_BASE = API_BASE.replace(/^http/, "ws");
 
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem("kinolent_access_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function jsonHeaders(): Record<string, string> {
+  return { "Content-Type": "application/json", ...authHeaders() };
+}
+
+function wsUrl(): string {
+  const token = localStorage.getItem("kinolent_access_token");
+  return token ? `${WS_BASE}/ws/generate?token=${token}` : `${WS_BASE}/ws/generate`;
+}
+
 // ── Типы ответов API ──────────────────────────────────────────────────────────
 
 interface ApiShow {
@@ -196,7 +212,7 @@ export function generateScheduleViaWs(
   movies: Movie[],
   callbacks: GenerationCallbacks,
 ): () => void {
-  const ws = new WebSocket(`${WS_BASE}/ws/generate`);
+  const ws = new WebSocket(wsUrl());
   let closed = false;
 
   const initialSteps: GenerationStep[] = [
@@ -305,7 +321,7 @@ export async function generateScheduleHttp(
   const body = buildRequestBody(config, movies);
   const response = await fetch(`${API_BASE}/api/schedule/generate-full`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonHeaders(),
     body: JSON.stringify(body),
   });
 
@@ -335,7 +351,7 @@ export async function checkHealth(): Promise<boolean> {
 // ── Movies CRUD ───────────────────────────────────────────────────────────────
 
 export async function fetchMovies(): Promise<Movie[]> {
-  const res = await fetch(`${API_BASE}/api/movies`);
+  const res = await fetch(`${API_BASE}/api/movies`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`fetchMovies: ${res.status}`);
   return res.json() as Promise<Movie[]>;
 }
@@ -343,7 +359,7 @@ export async function fetchMovies(): Promise<Movie[]> {
 export async function createMovie(data: MovieFormData): Promise<Movie> {
   const res = await fetch(`${API_BASE}/api/movies`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(`createMovie: ${res.status}`);
@@ -356,7 +372,7 @@ export async function updateMovie(
 ): Promise<Movie> {
   const res = await fetch(`${API_BASE}/api/movies/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(`updateMovie: ${res.status}`);
@@ -366,23 +382,23 @@ export async function updateMovie(
 export async function toggleMovieApi(id: string): Promise<Movie> {
   const res = await fetch(`${API_BASE}/api/movies/${id}/toggle`, {
     method: "PATCH",
+    headers: authHeaders(),
   });
   if (!res.ok) throw new Error(`toggleMovie: ${res.status}`);
   return res.json() as Promise<Movie>;
 }
 
 export async function deleteMovieApi(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/movies/${id}`, { method: "DELETE" });
+  const res = await fetch(`${API_BASE}/api/movies/${id}`, { method: "DELETE", headers: authHeaders() });
   if (!res.ok) throw new Error(`deleteMovie: ${res.status}`);
 }
 
 // ── Halls CRUD ────────────────────────────────────────────────────────────────
 
 export async function fetchHalls(): Promise<HallConfig[]> {
-  const res = await fetch(`${API_BASE}/api/halls`);
+  const res = await fetch(`${API_BASE}/api/halls`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`fetchHalls: ${res.status}`);
   const halls = (await res.json()) as Array<HallConfig & { enabled?: boolean }>;
-  // добавляем enabled: true (поле только UI, в БД не хранится)
   return halls.map((h) => ({ ...h, enabled: true }));
 }
 
@@ -391,7 +407,7 @@ export async function createHallApi(
 ): Promise<HallConfig> {
   const res = await fetch(`${API_BASE}/api/halls`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(`createHall: ${res.status}`);
@@ -405,7 +421,7 @@ export async function updateHallApi(
 ): Promise<HallConfig> {
   const res = await fetch(`${API_BASE}/api/halls/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(`updateHall: ${res.status}`);
@@ -414,14 +430,14 @@ export async function updateHallApi(
 }
 
 export async function deleteHallApi(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/halls/${id}`, { method: "DELETE" });
+  const res = await fetch(`${API_BASE}/api/halls/${id}`, { method: "DELETE", headers: authHeaders() });
   if (!res.ok) throw new Error(`deleteHall: ${res.status}`);
 }
 
 // ── Schedules persistence ─────────────────────────────────────────────────────
 
 export async function fetchSchedulesFromDb(): Promise<CinemaSchedule[]> {
-  const res = await fetch(`${API_BASE}/api/schedules`);
+  const res = await fetch(`${API_BASE}/api/schedules`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`fetchSchedules: ${res.status}`);
   return res.json() as Promise<CinemaSchedule[]>;
 }
@@ -431,7 +447,7 @@ export async function saveScheduleToDb(
 ): Promise<void> {
   const res = await fetch(`${API_BASE}/api/schedules`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonHeaders(),
     body: JSON.stringify({
       id: schedule.id,
       name: schedule.name,
@@ -449,6 +465,7 @@ export async function saveScheduleToDb(
 export async function deleteScheduleFromDb(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/api/schedules/${id}`, {
     method: "DELETE",
+    headers: authHeaders(),
   });
   if (!res.ok && res.status !== 404)
     throw new Error(`deleteSchedule: ${res.status}`);

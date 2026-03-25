@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.deps import require_any, require_manager
 from db.models import SavedSchedule
 from db.session import get_db
 
@@ -36,7 +37,7 @@ class ScheduleSaveBody(BaseModel):
 
 # ── Эндпоинты ────────────────────────────────────────────────────────────────
 
-@router.get("")
+@router.get("", dependencies=[Depends(require_any)])
 async def list_schedules(db: AsyncSession = Depends(get_db)):
     """Возвращает все расписания с полными данными (для восстановления стора)."""
     result = await db.execute(
@@ -46,7 +47,7 @@ async def list_schedules(db: AsyncSession = Depends(get_db)):
     return [s.data for s in schedules]
 
 
-@router.get("/{schedule_id}")
+@router.get("/{schedule_id}", dependencies=[Depends(require_any)])
 async def get_schedule(schedule_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(SavedSchedule).where(SavedSchedule.id == schedule_id)
@@ -57,7 +58,7 @@ async def get_schedule(schedule_id: str, db: AsyncSession = Depends(get_db)):
     return s.data
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, dependencies=[Depends(require_manager)])
 async def save_schedule(
     body: ScheduleSaveBody, db: AsyncSession = Depends(get_db)
 ):
@@ -88,7 +89,7 @@ async def save_schedule(
     return {"id": body.id}
 
 
-@router.delete("/{schedule_id}", status_code=204)
+@router.delete("/{schedule_id}", status_code=204, dependencies=[Depends(require_manager)])
 async def delete_schedule(schedule_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(SavedSchedule).where(SavedSchedule.id == schedule_id)

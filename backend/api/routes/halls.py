@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.deps import require_any, require_manager
 from db.models import Hall
 from db.session import get_db
 
@@ -57,13 +58,13 @@ def _to_out(h: Hall) -> HallOut:
 
 # ── Эндпоинты ────────────────────────────────────────────────────────────────
 
-@router.get("", response_model=list[HallOut])
+@router.get("", response_model=list[HallOut], dependencies=[Depends(require_any)])
 async def list_halls(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Hall))
     return [_to_out(h) for h in result.scalars().all()]
 
 
-@router.post("", response_model=HallOut, status_code=201)
+@router.post("", response_model=HallOut, status_code=201, dependencies=[Depends(require_manager)])
 async def create_hall(body: HallBody, db: AsyncSession = Depends(get_db)):
     hall = Hall(
         name=body.name,
@@ -80,7 +81,7 @@ async def create_hall(body: HallBody, db: AsyncSession = Depends(get_db)):
     return _to_out(hall)
 
 
-@router.put("/{hall_id}", response_model=HallOut)
+@router.put("/{hall_id}", response_model=HallOut, dependencies=[Depends(require_manager)])
 async def update_hall(
     hall_id: str, body: HallBody, db: AsyncSession = Depends(get_db)
 ):
@@ -102,7 +103,7 @@ async def update_hall(
     return _to_out(hall)
 
 
-@router.delete("/{hall_id}", status_code=204)
+@router.delete("/{hall_id}", status_code=204, dependencies=[Depends(require_manager)])
 async def delete_hall(hall_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Hall).where(Hall.id == hall_id))
     hall = result.scalar_one_or_none()

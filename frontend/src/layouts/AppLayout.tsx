@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   Film,
   LayoutDashboard,
@@ -7,9 +7,13 @@ import {
   Clapperboard,
   Menu,
   X,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { observer } from "mobx-react";
+import { authStore } from "@/stores/authStore";
+import { ROLE_LABELS, ROLE_COLORS } from "@/types/user";
 
 const NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Дашборд" },
@@ -18,8 +22,14 @@ const NAV_ITEMS = [
   { to: "/generate", icon: Sparkles, label: "Генерация" },
 ];
 
-export function AppLayout() {
+export const AppLayout = observer(function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    authStore.logout();
+    navigate("/login");
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -63,6 +73,27 @@ export function AppLayout() {
               </NavLink>
             ))}
           </nav>
+
+          {/* Правая часть: профиль + выход */}
+          <div className="hidden md:flex items-center gap-3">
+            {authStore.user && (
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-foreground leading-none">{authStore.user.name}</p>
+                  <p className={cn("text-xs leading-none mt-0.5", ROLE_COLORS[authStore.user.role])}>
+                    {ROLE_LABELS[authStore.user.role]}
+                  </p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  title="Выйти"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/50 bg-muted/30 text-muted-foreground hover:text-red-400 hover:border-red-400/30 hover:bg-red-400/10 transition-all"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Кнопка мобильного меню */}
           <button
@@ -111,4 +142,4 @@ export function AppLayout() {
       </main>
     </div>
   );
-}
+});

@@ -66,3 +66,17 @@ class SavedSchedule(Base):
     total_revenue: Mapped[float] = mapped_column(Float, default=0.0)
     total_attendance: Mapped[int] = mapped_column(Integer, default=0)
     total_shows: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="viewer")  # admin | manager | viewer
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

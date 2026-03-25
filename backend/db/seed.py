@@ -10,7 +10,7 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import Hall, Movie
+from .models import Hall, Movie, User
 from .session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
@@ -106,3 +106,18 @@ async def seed_if_empty() -> None:
                 db.add(Hall(**data))
             await db.commit()
             logger.info(f"Seeded {len(_DEMO_HALLS)} halls")
+
+        # Создаём admin-пользователя если нет ни одного
+        user_count = (await db.execute(select(User))).scalars().first()
+        if user_count is None:
+            from passlib.context import CryptContext
+            pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            admin = User(
+                email="admin@kinolent.ru",
+                name="Администратор",
+                password_hash=pwd_ctx.hash("admin123"),
+                role="admin",
+            )
+            db.add(admin)
+            await db.commit()
+            logger.info("Seeded default admin: admin@kinolent.ru / admin123")

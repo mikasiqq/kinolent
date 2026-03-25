@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.deps import require_any, require_manager
 from db.models import Movie
 from db.session import get_db
 
@@ -78,7 +79,7 @@ def _to_out(m: Movie) -> MovieOut:
 
 # ── Эндпоинты ────────────────────────────────────────────────────────────────
 
-@router.get("", response_model=list[MovieOut])
+@router.get("", response_model=list[MovieOut], dependencies=[Depends(require_any)])
 async def list_movies(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Movie).order_by(Movie.created_at.desc())
@@ -86,7 +87,7 @@ async def list_movies(db: AsyncSession = Depends(get_db)):
     return [_to_out(m) for m in result.scalars().all()]
 
 
-@router.post("", response_model=MovieOut, status_code=201)
+@router.post("", response_model=MovieOut, status_code=201, dependencies=[Depends(require_manager)])
 async def create_movie(body: MovieBody, db: AsyncSession = Depends(get_db)):
     movie = Movie(
         title=body.title,
@@ -109,7 +110,7 @@ async def create_movie(body: MovieBody, db: AsyncSession = Depends(get_db)):
     return _to_out(movie)
 
 
-@router.put("/{movie_id}", response_model=MovieOut)
+@router.put("/{movie_id}", response_model=MovieOut, dependencies=[Depends(require_manager)])
 async def update_movie(
     movie_id: str, body: MovieBody, db: AsyncSession = Depends(get_db)
 ):
@@ -137,7 +138,7 @@ async def update_movie(
     return _to_out(movie)
 
 
-@router.patch("/{movie_id}/toggle", response_model=MovieOut)
+@router.patch("/{movie_id}/toggle", response_model=MovieOut, dependencies=[Depends(require_manager)])
 async def toggle_movie(movie_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Movie).where(Movie.id == movie_id))
     movie = result.scalar_one_or_none()
@@ -149,7 +150,7 @@ async def toggle_movie(movie_id: str, db: AsyncSession = Depends(get_db)):
     return _to_out(movie)
 
 
-@router.delete("/{movie_id}", status_code=204)
+@router.delete("/{movie_id}", status_code=204, dependencies=[Depends(require_manager)])
 async def delete_movie(movie_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Movie).where(Movie.id == movie_id))
     movie = result.scalar_one_or_none()

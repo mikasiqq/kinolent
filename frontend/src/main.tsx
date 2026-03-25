@@ -1,14 +1,19 @@
 import { movieStore } from "@/stores/movieStore";
 import { scheduleStore } from "@/stores/scheduleStore";
+import { authStore } from "@/stores/authStore";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// Инициализация данных из API при старте приложения
-movieStore.fetchMovies();
-scheduleStore.fetchHalls();
-scheduleStore.loadSchedules();
+// Сначала восстанавливаем сессию, потом грузим данные
+authStore.init().then(() => {
+  if (authStore.isAuthenticated) {
+    movieStore.fetchMovies();
+    scheduleStore.fetchHalls();
+    scheduleStore.loadSchedules();
+  }
+});
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
