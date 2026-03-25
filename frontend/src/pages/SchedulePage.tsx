@@ -1,31 +1,31 @@
-import { observer } from "mobx-react";
-import { useNavigate } from "react-router-dom";
-import { useState } from "react";
-import {
-  CalendarDays,
-  Sparkles,
-  Trash2,
-  Clock,
-  Info,
-  AlertCircle,
-  Users,
-  BarChart3,
-  Pencil,
-  Star,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs } from "@/components/ui/tabs";
-import { HallTimeline } from "@/components/schedule/HallTimeline";
-import { ScheduleStats } from "@/components/schedule/ScheduleStats";
 import { DaySelector } from "@/components/schedule/DaySelector";
-import { ShowEditDialog } from "@/components/schedule/ShowEditDialog";
-import { ScheduleRenameDialog } from "@/components/schedule/ScheduleRenameDialog";
+import { HallTimeline } from "@/components/schedule/HallTimeline";
 import { RatingBadge, RatingDialog } from "@/components/schedule/RatingWidget";
+import { ScheduleRenameDialog } from "@/components/schedule/ScheduleRenameDialog";
+import { ScheduleStats } from "@/components/schedule/ScheduleStats";
+import { ShowEditDialog } from "@/components/schedule/ShowEditDialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { scheduleStore } from "@/stores/scheduleStore";
 import type { ScheduleShow } from "@/types/schedule";
 import { DAY_NAMES_FULL } from "@/types/schedule";
-import { cn } from "@/lib/utils";
+import {
+  AlertCircle,
+  BarChart3,
+  CalendarDays,
+  Clock,
+  Info,
+  Pencil,
+  Sparkles,
+  Star,
+  Trash2,
+  Users,
+} from "lucide-react";
+import { observer } from "mobx-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export const SchedulePage = observer(function SchedulePage() {
   const navigate = useNavigate();
@@ -293,8 +293,7 @@ const ShowsTable = observer(function ShowsTable({
               <th className="text-right px-6 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                 Выручка
               </th>
-              <th className="text-right px-6 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider w-16">
-              </th>
+              <th className="text-right px-6 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider w-16"></th>
             </tr>
           </thead>
           <tbody>

@@ -1,12 +1,5 @@
-import { useState } from "react";
-import { observer } from "mobx-react";
-import {
-  Clock,
-  Film,
-  Trash2,
-  ArrowRightLeft,
-  Save,
-} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -15,9 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -25,14 +17,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { movieStore } from "@/stores/movieStore";
+import { scheduleStore } from "@/stores/scheduleStore";
+import type { Genre } from "@/types/movie";
+import { GENRE_LABELS } from "@/types/movie";
 import type { ScheduleShow } from "@/types/schedule";
 import { formatMinutesToTime } from "@/types/schedule";
-import { GENRE_LABELS } from "@/types/movie";
-import type { Genre } from "@/types/movie";
-import { scheduleStore } from "@/stores/scheduleStore";
-import { movieStore } from "@/stores/movieStore";
-import { cn } from "@/lib/utils";
+import {
+  AlertTriangle,
+  ArrowRightLeft,
+  Clock,
+  Film,
+  Save,
+  Trash2,
+} from "lucide-react";
+import { observer } from "mobx-react";
+import { useState } from "react";
 
 interface ShowEditDialogProps {
   show: ScheduleShow | null;
@@ -61,7 +62,13 @@ export const ShowEditDialog = observer(function ShowEditDialog({
   };
 
   // Initialize on open
-  if (show && open && startHour === 0 && startMinute === 0 && show.startMinutes > 0) {
+  if (
+    show &&
+    open &&
+    startHour === 0 &&
+    startMinute === 0 &&
+    show.startMinutes > 0
+  ) {
     resetState();
   }
 
@@ -74,14 +81,46 @@ export const ShowEditDialog = observer(function ShowEditDialog({
   const movieChanged = selectedMovieId && selectedMovieId !== show.movieId;
   const hasChanges = timeChanged || movieChanged;
 
+  // ── Live overlap validation ────────────────────────────────────────────
+  const overlapError = (() => {
+    // Determine the effective duration after all pending changes
+    const effectiveMovie = movieChanged
+      ? movieStore.movies.find((m) => m.id === selectedMovieId)
+      : null;
+    const duration = effectiveMovie
+      ? effectiveMovie.duration + show.adBlockMinutes
+      : show.endMinutes - show.startMinutes;
+    const start = timeChanged ? newStartMinutes : show.startMinutes;
+    const end = start + duration;
+
+    const conflict = scheduleStore.checkOverlap(
+      show.hallId,
+      show.day,
+      start,
+      end,
+      show.id,
+    );
+    if (!conflict) return null;
+    return `Пересечение с «${conflict.movieTitle}» (${fmt(conflict.startMinutes)}–${fmt(conflict.endMinutes)})`;
+  })();
+
+  function fmt(minutes: number): string {
+    const h = Math.floor(minutes / 60) % 24;
+    const m = minutes % 60;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+  }
+
   function handleSave() {
+    if (overlapError) return;
+
     if (timeChanged) {
-      scheduleStore.updateShowTime(show!.id, newStartMinutes);
+      const err = scheduleStore.updateShowTime(show!.id, newStartMinutes);
+      if (err) return; // safety — shouldn't happen since we pre-validated
     }
     if (movieChanged && selectedMovieId) {
       const movie = movieStore.movies.find((m) => m.id === selectedMovieId);
       if (movie) {
-        scheduleStore.replaceShowMovie(show!.id, {
+        const err = scheduleStore.replaceShowMovie(show!.id, {
           id: movie.id,
           title: movie.title,
           duration: movie.duration,
@@ -89,6 +128,7 @@ export const ShowEditDialog = observer(function ShowEditDialog({
           ageRating: movie.ageRating,
           posterUrl: movie.posterUrl,
         });
+        if (err) return;
       }
     }
     onOpenChange(false);
@@ -134,7 +174,8 @@ export const ShowEditDialog = observer(function ShowEditDialog({
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {formatMinutesToTime(show.startMinutes)} — {formatMinutesToTime(show.endMinutes)}
+                {formatMinutesToTime(show.startMinutes)} —{" "}
+                {formatMinutesToTime(show.endMinutes)}
               </span>
               <span>{show.hallName}</span>
               <span>{genreLabel}</span>
@@ -154,7 +195,11 @@ export const ShowEditDialog = observer(function ShowEditDialog({
                 min={0}
                 max={23}
                 value={startHour}
-                onChange={(e) => setStartHour(Math.max(0, Math.min(23, Number(e.target.value))))}
+                onChange={(e) =>
+                  setStartHour(
+                    Math.max(0, Math.min(23, Number(e.target.value))),
+                  )
+                }
                 className="w-20 text-center"
               />
               <span className="text-lg font-bold text-muted-foreground">:</span>
@@ -164,7 +209,11 @@ export const ShowEditDialog = observer(function ShowEditDialog({
                 max={59}
                 step={5}
                 value={startMinute}
-                onChange={(e) => setStartMinute(Math.max(0, Math.min(59, Number(e.target.value))))}
+                onChange={(e) =>
+                  setStartMinute(
+                    Math.max(0, Math.min(59, Number(e.target.value))),
+                  )
+                }
                 className="w-20 text-center"
               />
               {timeChanged && (
@@ -213,6 +262,14 @@ export const ShowEditDialog = observer(function ShowEditDialog({
           </div>
         </div>
 
+        {/* Ошибка пересечения */}
+        {overlapError && (
+          <div className="flex items-start gap-2 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 px-3.5 py-2.5 text-sm text-red-600 dark:text-red-400">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>{overlapError}</span>
+          </div>
+        )}
+
         <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-2">
           <Button
             type="button"
@@ -228,7 +285,7 @@ export const ShowEditDialog = observer(function ShowEditDialog({
               Отмена
             </Button>
             <Button
-              disabled={!hasChanges}
+              disabled={!hasChanges || !!overlapError}
               onClick={handleSave}
               className="bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 gap-1.5"
             >

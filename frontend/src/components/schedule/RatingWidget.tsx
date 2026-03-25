@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
-import { observer } from "mobx-react";
-import { Star, MessageSquare, Send } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,10 +7,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { scheduleStore } from "@/stores/scheduleStore";
 import { cn } from "@/lib/utils";
+import { scheduleStore } from "@/stores/scheduleStore";
+import { MessageSquare, Send, Star } from "lucide-react";
+import { observer } from "mobx-react";
+import { useEffect, useState } from "react";
 
 // ── Inline Star Rating ──────────────────────────────────────────────────────
 
@@ -23,10 +23,16 @@ interface StarRatingProps {
   readonly?: boolean;
 }
 
-function StarRating({ value, onChange, size = "md", readonly = false }: StarRatingProps) {
+function StarRating({
+  value,
+  onChange,
+  size = "md",
+  readonly = false,
+}: StarRatingProps) {
   const [hovered, setHovered] = useState(0);
 
-  const sizeClass = size === "sm" ? "h-4 w-4" : size === "lg" ? "h-7 w-7" : "h-5 w-5";
+  const sizeClass =
+    size === "sm" ? "h-4 w-4" : size === "lg" ? "h-7 w-7" : "h-5 w-5";
   const gapClass = size === "sm" ? "gap-0.5" : "gap-1";
 
   return (
@@ -129,7 +135,11 @@ export const RatingDialog = observer(function RatingDialog({
   async function handleSubmit() {
     if (myRating < 1) return;
     setSaving(true);
-    await scheduleStore.rateSchedule(scheduleId, myRating, myComment || undefined);
+    await scheduleStore.rateSchedule(
+      scheduleId,
+      myRating,
+      myComment || undefined,
+    );
     setSaving(false);
   }
 
@@ -141,9 +151,7 @@ export const RatingDialog = observer(function RatingDialog({
             <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
             Оценка расписания
           </DialogTitle>
-          <DialogDescription>
-            {scheduleName}
-          </DialogDescription>
+          <DialogDescription>{scheduleName}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 pt-1">
@@ -157,14 +165,18 @@ export const RatingDialog = observer(function RatingDialog({
                 <p className="text-[10px] text-muted-foreground">из 5</p>
               </div>
               <div>
-                <StarRating value={Math.round(data.averageRating)} readonly size="md" />
+                <StarRating
+                  value={Math.round(data.averageRating)}
+                  readonly
+                  size="md"
+                />
                 <p className="text-xs text-muted-foreground mt-1">
                   {data.totalRatings}{" "}
                   {data.totalRatings === 1
                     ? "оценка"
                     : data.totalRatings < 5
-                    ? "оценки"
-                    : "оценок"}
+                      ? "оценки"
+                      : "оценок"}
                 </p>
               </div>
             </div>
@@ -190,8 +202,8 @@ export const RatingDialog = observer(function RatingDialog({
               {saving
                 ? "Сохранение..."
                 : data?.myRating
-                ? "Обновить оценку"
-                : "Отправить оценку"}
+                  ? "Обновить оценку"
+                  : "Отправить оценку"}
             </Button>
           </div>
 
@@ -213,7 +225,9 @@ export const RatingDialog = observer(function RatingDialog({
                       <StarRating value={r.rating} readonly size="sm" />
                     </div>
                     {r.comment && (
-                      <p className="text-xs text-muted-foreground">{r.comment}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {r.comment}
+                      </p>
                     )}
                     <p className="text-[10px] text-muted-foreground/60 mt-1">
                       {new Date(r.createdAt).toLocaleString("ru-RU")}

@@ -1,8 +1,3 @@
-import { observer } from "mobx-react";
-import type { ScheduleShow } from "@/types/schedule";
-import { formatMinutesToTime, HALL_COLORS } from "@/types/schedule";
-import { GENRE_LABELS, GENRE_COLORS } from "@/types/movie";
-import type { Genre } from "@/types/movie";
 import {
   Tooltip,
   TooltipContent,
@@ -10,6 +5,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import type { Genre } from "@/types/movie";
+import { GENRE_COLORS, GENRE_LABELS } from "@/types/movie";
+import type { ScheduleShow } from "@/types/schedule";
+import { formatMinutesToTime, HALL_COLORS } from "@/types/schedule";
+import { observer } from "mobx-react";
 
 interface TimelineProps {
   shows: ScheduleShow[];

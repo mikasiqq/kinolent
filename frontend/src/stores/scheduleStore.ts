@@ -1,15 +1,15 @@
+import type { RatingsDetailResponse } from "@/services/api";
 import {
   checkHealth,
   deleteScheduleFromDb,
   fetchHalls,
+  fetchRatings,
   fetchSchedulesFromDb,
   generateScheduleViaWs,
   patchSchedule,
   saveScheduleToDb,
   submitRating,
-  fetchRatings,
 } from "@/services/api";
-import type { RatingsDetailResponse } from "@/services/api";
 import type {
   CinemaSchedule,
   GenerationConfig,
@@ -436,6 +436,35 @@ class ScheduleStore {
     );
   }
 
+  /**
+   * Проверяет, пересекается ли временной интервал с другими сеансами
+   * в том же зале и дне. Возвращает конфликтующий сеанс или null.
+   */
+  checkOverlap(
+    hallId: string,
+    day: number,
+    startMinutes: number,
+    endMinutes: number,
+    excludeShowId?: string,
+  ): ScheduleShow | null {
+    const schedule = this.currentSchedule;
+    if (!schedule) return null;
+
+    const hs = schedule.hallSchedules.find(
+      (h) => h.hallId === hallId && h.day === day,
+    );
+    if (!hs) return null;
+
+    for (const other of hs.shows) {
+      if (other.id === excludeShowId) continue;
+      // Два интервала пересекаются, если start < otherEnd && end > otherStart
+      if (startMinutes < other.endMinutes && endMinutes > other.startMinutes) {
+        return other;
+      }
+    }
+    return null;
+  }
+
   /** Удалить конкретный сеанс из расписания */
   removeShow(showId: string) {
     const schedule = this.currentSchedule;
@@ -457,24 +486,38 @@ class ScheduleStore {
     this._persistCurrentSchedule();
   }
 
-  /** Обновить время сеанса */
-  updateShowTime(showId: string, newStartMinutes: number) {
+  /** Обновить время сеанса. Возвращает ошибку пересечения или null. */
+  updateShowTime(showId: string, newStartMinutes: number): string | null {
     const schedule = this.currentSchedule;
-    if (!schedule) return;
+    if (!schedule) return null;
 
     for (const hs of schedule.hallSchedules) {
       const show = hs.shows.find((s) => s.id === showId);
       if (show) {
         const duration = show.endMinutes - show.startMinutes;
+        const newEnd = newStartMinutes + duration;
+
+        const conflict = this.checkOverlap(
+          show.hallId,
+          show.day,
+          newStartMinutes,
+          newEnd,
+          showId,
+        );
+        if (conflict) {
+          return `Пересечение с «${conflict.movieTitle}» (${this._fmtTime(conflict.startMinutes)}–${this._fmtTime(conflict.endMinutes)})`;
+        }
+
         show.startMinutes = newStartMinutes;
-        show.endMinutes = newStartMinutes + duration;
+        show.endMinutes = newEnd;
         break;
       }
     }
     this._persistCurrentSchedule();
+    return null;
   }
 
-  /** Заменить фильм в сеансе */
+  /** Заменить фильм в сеансе. Возвращает ошибку пересечения или null. */
   replaceShowMovie(
     showId: string,
     movie: {
@@ -485,51 +528,86 @@ class ScheduleStore {
       ageRating: string;
       posterUrl?: string;
     },
-  ) {
+  ): string | null {
     const schedule = this.currentSchedule;
-    if (!schedule) return;
+    if (!schedule) return null;
 
     for (const hs of schedule.hallSchedules) {
       const show = hs.shows.find((s) => s.id === showId);
       if (show) {
+        const newEnd = show.startMinutes + movie.duration + show.adBlockMinutes;
+
+        const conflict = this.checkOverlap(
+          show.hallId,
+          show.day,
+          show.startMinutes,
+          newEnd,
+          showId,
+        );
+        if (conflict) {
+          return `Фильм «${movie.title}» (${movie.duration} мин) создаёт пересечение с «${conflict.movieTitle}» (${this._fmtTime(conflict.startMinutes)}–${this._fmtTime(conflict.endMinutes)})`;
+        }
+
         show.movieId = movie.id;
         show.movieTitle = movie.title;
         show.movieDuration = movie.duration;
         show.genre = movie.genre;
         show.ageRating = movie.ageRating;
         show.posterUrl = movie.posterUrl;
-        // Adjust endMinutes (keep ad block)
-        show.endMinutes = show.startMinutes + movie.duration + show.adBlockMinutes;
+        show.endMinutes = newEnd;
         break;
       }
     }
     this._persistCurrentSchedule();
+    return null;
   }
 
-  /** Переместить сеанс между залами / днями */
+  /** Переместить сеанс между залами / днями. Возвращает ошибку или null. */
   moveShow(
     showId: string,
     targetHallId: string,
     targetHallName: string,
     targetDay: number,
-  ) {
+  ): string | null {
     const schedule = this.currentSchedule;
-    if (!schedule) return;
+    if (!schedule) return null;
 
-    // Find and remove from source
-    let show: ScheduleShow | null = null;
+    // Find show first (without removing) to check overlap
+    let sourceShow: ScheduleShow | null = null;
     for (const hs of schedule.hallSchedules) {
-      const idx = hs.shows.findIndex((s) => s.id === showId);
-      if (idx !== -1) {
-        show = { ...hs.shows[idx] };
-        hs.shows.splice(idx, 1);
-        hs.totalRevenue -= show.predictedRevenue;
-        hs.totalAttendance -= show.predictedAttendance;
+      const s = hs.shows.find((s) => s.id === showId);
+      if (s) {
+        sourceShow = s;
         break;
       }
     }
-    if (!show) return;
+    if (!sourceShow) return null;
 
+    // Check overlap at target
+    const duration = sourceShow.endMinutes - sourceShow.startMinutes;
+    const conflict = this.checkOverlap(
+      targetHallId,
+      targetDay,
+      sourceShow.startMinutes,
+      sourceShow.startMinutes + duration,
+      showId,
+    );
+    if (conflict) {
+      return `Пересечение с «${conflict.movieTitle}» (${this._fmtTime(conflict.startMinutes)}–${this._fmtTime(conflict.endMinutes)})`;
+    }
+
+    // Now safe to remove from source
+    for (const hs of schedule.hallSchedules) {
+      const idx = hs.shows.findIndex((s) => s.id === showId);
+      if (idx !== -1) {
+        hs.shows.splice(idx, 1);
+        hs.totalRevenue -= sourceShow.predictedRevenue;
+        hs.totalAttendance -= sourceShow.predictedAttendance;
+        break;
+      }
+    }
+
+    const show = { ...sourceShow };
     // Update show
     show.hallId = targetHallId;
     show.hallName = targetHallName;
@@ -556,6 +634,14 @@ class ScheduleStore {
     target.totalAttendance += show.predictedAttendance;
 
     this._persistCurrentSchedule();
+    return null;
+  }
+
+  /** Format minutes to HH:MM */
+  private _fmtTime(minutes: number): string {
+    const h = Math.floor(minutes / 60) % 24;
+    const m = minutes % 60;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
   }
 
   /** Persist current schedule to DB */
