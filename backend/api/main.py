@@ -16,10 +16,15 @@ import asyncio
 import logging
 import time as time_module
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+
+from db.session import init_db
+from db.seed import seed_if_empty
+from .routes import movies_router, halls_router, schedules_db_router
 
 from scheduler.engine import CinemaScheduler
 from scheduler.models import SolverMetrics, WeeklySchedule
@@ -49,11 +54,24 @@ logger = logging.getLogger(__name__)
 
 # ── Приложение ───────────────────────────────────────────────────────────────
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Инициализация БД и seed при старте."""
+    try:
+        await init_db()
+        await seed_if_empty()
+        logger.info("Database ready")
+    except Exception as e:
+        logger.warning(f"Database init failed (continuing without DB): {e}")
+    yield
+
+
 app = FastAPI(
     title="Кинолент API",
     description="REST + WebSocket API для генерации расписания кинотеатра "
                 "методом Column Generation (SilverScheduler).",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -63,6 +81,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── CRUD роутеры ─────────────────────────────────────────────────────────────
+app.include_router(movies_router)
+app.include_router(halls_router)
+app.include_router(schedules_db_router)
 
 
 # ── Health-check ─────────────────────────────────────────────────────────────
@@ -379,19 +402,19 @@ def _get_demo_movies() -> list[MovieIn]:
     """Демо-фильмы, если фронтенд не прислал список."""
     return [
         MovieIn(id="1", title="Дюна: Часть вторая", duration=166, ageRating="12+",
-                genre="sci-fi", popularity=9, minShowsPerDay=2, maxShowsPerDay=5, isActive=True),
+                genre="sci-fi", popularity=9, minShowsPerDay=0, maxShowsPerDay=5, isActive=True),
         MovieIn(id="2", title="Оппенгеймер", duration=180, ageRating="16+",
-                genre="drama", popularity=10, minShowsPerDay=2, maxShowsPerDay=4, isActive=True),
+                genre="drama", popularity=10, minShowsPerDay=0, maxShowsPerDay=4, isActive=True),
         MovieIn(id="3", title="Головоломка 2", duration=100, ageRating="6+",
-                genre="animation", popularity=8, minShowsPerDay=3, maxShowsPerDay=6, isActive=True),
+                genre="animation", popularity=8, minShowsPerDay=0, maxShowsPerDay=6, isActive=True),
         MovieIn(id="4", title="Чужой: Ромул", duration=119, ageRating="18+",
-                genre="horror", popularity=7, minShowsPerDay=1, maxShowsPerDay=3, isActive=True),
+                genre="horror", popularity=7, minShowsPerDay=0, maxShowsPerDay=3, isActive=True),
         MovieIn(id="5", title="Гладиатор 2", duration=148, ageRating="16+",
-                genre="action", popularity=8, minShowsPerDay=2, maxShowsPerDay=5, isActive=True),
+                genre="action", popularity=8, minShowsPerDay=0, maxShowsPerDay=5, isActive=True),
         MovieIn(id="6", title="Интерстеллар: Возвращение", duration=165, ageRating="12+",
-                genre="sci-fi", popularity=9, minShowsPerDay=1, maxShowsPerDay=4, isActive=True),
+                genre="sci-fi", popularity=9, minShowsPerDay=0, maxShowsPerDay=4, isActive=True),
         MovieIn(id="7", title="Тихое место: День первый", duration=100, ageRating="16+",
-                genre="horror", popularity=6, minShowsPerDay=1, maxShowsPerDay=3, isActive=True),
+                genre="horror", popularity=6, minShowsPerDay=0, maxShowsPerDay=3, isActive=True),
         MovieIn(id="8", title="Гарри Поттер: Новое поколение", duration=140, ageRating="12+",
-                genre="fantasy", popularity=9, minShowsPerDay=2, maxShowsPerDay=5, isActive=True),
+                genre="fantasy", popularity=9, minShowsPerDay=0, maxShowsPerDay=5, isActive=True),
     ]

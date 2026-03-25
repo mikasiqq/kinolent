@@ -5,10 +5,18 @@
  *   - generateScheduleViaWs()  — WebSocket-генерация с прогрессом
  *   - generateScheduleHttp()   — REST-генерация (без прогресса)
  *   - checkHealth()            — проверка доступности сервера
+ *   - fetchMovies/createMovie/updateMovie/deleteMovie/toggleMovie
+ *   - fetchHalls/createHall/updateHall/deleteHall
+ *   - fetchSchedules/saveSchedule/deleteScheduleFromDb
  */
 
-import type { CinemaSchedule, GenerationConfig, GenerationStep } from "@/types/schedule";
-import type { Movie } from "@/types/movie";
+import type { Movie, MovieFormData } from "@/types/movie";
+import type {
+  CinemaSchedule,
+  GenerationConfig,
+  GenerationStep,
+  HallConfig,
+} from "@/types/schedule";
 
 // ── URL конфигурация ──────────────────────────────────────────────────────────
 
@@ -99,9 +107,10 @@ function mapSchedule(api: ApiScheduleOut): CinemaSchedule {
     id: api.id,
     name: api.name,
     createdAt: api.createdAt,
-    days: api.hallSchedules.length > 0
-      ? Math.max(...api.hallSchedules.map((hs) => hs.day)) + 1
-      : 1,
+    days:
+      api.hallSchedules.length > 0
+        ? Math.max(...api.hallSchedules.map((hs) => hs.day)) + 1
+        : 1,
     hallSchedules: api.hallSchedules.map((hs) => ({
       hallId: hs.hallId,
       hallName: hs.hallName,
@@ -191,11 +200,31 @@ export function generateScheduleViaWs(
   let closed = false;
 
   const initialSteps: GenerationStep[] = [
-    { label: "Инициализация", description: "Подготовка данных и параметров", status: "pending" },
-    { label: "Генерация столбцов", description: "Column Generation — поиск допустимых расписаний залов", status: "pending" },
-    { label: "LP-релаксация", description: "Решение линейной релаксации мастер-задачи", status: "pending" },
-    { label: "Целочисленное решение", description: "MILP — получение финального расписания", status: "pending" },
-    { label: "Пост-обработка", description: "Расчёт прогнозов и метрик качества", status: "pending" },
+    {
+      label: "Инициализация",
+      description: "Подготовка данных и параметров",
+      status: "pending",
+    },
+    {
+      label: "Генерация столбцов",
+      description: "Column Generation — поиск допустимых расписаний залов",
+      status: "pending",
+    },
+    {
+      label: "LP-релаксация",
+      description: "Решение линейной релаксации мастер-задачи",
+      status: "pending",
+    },
+    {
+      label: "Целочисленное решение",
+      description: "MILP — получение финального расписания",
+      status: "pending",
+    },
+    {
+      label: "Пост-обработка",
+      description: "Расчёт прогнозов и метрик качества",
+      status: "pending",
+    },
   ];
 
   const steps: GenerationStep[] = initialSteps.map((s) => ({ ...s }));
@@ -229,27 +258,40 @@ export function generateScheduleViaWs(
     } else if (msg.type === "done") {
       const schedule = mapSchedule((msg as WsDone).schedule);
       callbacks.onDone(schedule);
-      if (!closed) { ws.close(); closed = true; }
+      if (!closed) {
+        ws.close();
+        closed = true;
+      }
     } else if (msg.type === "error") {
       callbacks.onError((msg as WsError).message);
-      if (!closed) { ws.close(); closed = true; }
+      if (!closed) {
+        ws.close();
+        closed = true;
+      }
     }
   };
 
   ws.onerror = () => {
-    callbacks.onError("Ошибка соединения с сервером. Проверьте, что бэкенд запущен на порту 8000.");
+    callbacks.onError(
+      "Ошибка соединения с сервером. Проверьте, что бэкенд запущен на порту 8000.",
+    );
   };
 
   ws.onclose = (event: CloseEvent) => {
     if (!closed && event.code !== 1000) {
-      callbacks.onError(`WebSocket закрыт (код ${event.code}). Сервер недоступен.`);
+      callbacks.onError(
+        `WebSocket закрыт (код ${event.code}). Сервер недоступен.`,
+      );
     }
     closed = true;
   };
 
   // Функция отмены
   return () => {
-    if (!closed) { ws.close(1000, "cancelled"); closed = true; }
+    if (!closed) {
+      ws.close(1000, "cancelled");
+      closed = true;
+    }
   };
 }
 
@@ -281,9 +323,133 @@ export async function generateScheduleHttp(
  */
 export async function checkHealth(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE}/api/health`, { signal: AbortSignal.timeout(3000) });
+    const response = await fetch(`${API_BASE}/api/health`, {
+      signal: AbortSignal.timeout(3000),
+    });
     return response.ok;
   } catch {
     return false;
   }
+}
+
+// ── Movies CRUD ───────────────────────────────────────────────────────────────
+
+export async function fetchMovies(): Promise<Movie[]> {
+  const res = await fetch(`${API_BASE}/api/movies`);
+  if (!res.ok) throw new Error(`fetchMovies: ${res.status}`);
+  return res.json() as Promise<Movie[]>;
+}
+
+export async function createMovie(data: MovieFormData): Promise<Movie> {
+  const res = await fetch(`${API_BASE}/api/movies`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`createMovie: ${res.status}`);
+  return res.json() as Promise<Movie>;
+}
+
+export async function updateMovie(
+  id: string,
+  data: MovieFormData,
+): Promise<Movie> {
+  const res = await fetch(`${API_BASE}/api/movies/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`updateMovie: ${res.status}`);
+  return res.json() as Promise<Movie>;
+}
+
+export async function toggleMovieApi(id: string): Promise<Movie> {
+  const res = await fetch(`${API_BASE}/api/movies/${id}/toggle`, {
+    method: "PATCH",
+  });
+  if (!res.ok) throw new Error(`toggleMovie: ${res.status}`);
+  return res.json() as Promise<Movie>;
+}
+
+export async function deleteMovieApi(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/movies/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`deleteMovie: ${res.status}`);
+}
+
+// ── Halls CRUD ────────────────────────────────────────────────────────────────
+
+export async function fetchHalls(): Promise<HallConfig[]> {
+  const res = await fetch(`${API_BASE}/api/halls`);
+  if (!res.ok) throw new Error(`fetchHalls: ${res.status}`);
+  const halls = (await res.json()) as Array<HallConfig & { enabled?: boolean }>;
+  // добавляем enabled: true (поле только UI, в БД не хранится)
+  return halls.map((h) => ({ ...h, enabled: true }));
+}
+
+export async function createHallApi(
+  data: Omit<HallConfig, "id" | "enabled">,
+): Promise<HallConfig> {
+  const res = await fetch(`${API_BASE}/api/halls`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`createHall: ${res.status}`);
+  const hall = (await res.json()) as HallConfig;
+  return { ...hall, enabled: true };
+}
+
+export async function updateHallApi(
+  id: string,
+  data: Omit<HallConfig, "id" | "enabled">,
+): Promise<HallConfig> {
+  const res = await fetch(`${API_BASE}/api/halls/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`updateHall: ${res.status}`);
+  const hall = (await res.json()) as HallConfig;
+  return { ...hall, enabled: true };
+}
+
+export async function deleteHallApi(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/halls/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`deleteHall: ${res.status}`);
+}
+
+// ── Schedules persistence ─────────────────────────────────────────────────────
+
+export async function fetchSchedulesFromDb(): Promise<CinemaSchedule[]> {
+  const res = await fetch(`${API_BASE}/api/schedules`);
+  if (!res.ok) throw new Error(`fetchSchedules: ${res.status}`);
+  return res.json() as Promise<CinemaSchedule[]>;
+}
+
+export async function saveScheduleToDb(
+  schedule: CinemaSchedule,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/schedules`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: schedule.id,
+      name: schedule.name,
+      createdAt: schedule.createdAt,
+      days: schedule.days,
+      data: schedule,
+      totalRevenue: schedule.totalRevenue,
+      totalAttendance: schedule.totalAttendance,
+      totalShows: schedule.totalShows,
+    }),
+  });
+  if (!res.ok) throw new Error(`saveSchedule: ${res.status}`);
+}
+
+export async function deleteScheduleFromDb(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/schedules/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok && res.status !== 404)
+    throw new Error(`deleteSchedule: ${res.status}`);
 }

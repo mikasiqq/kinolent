@@ -50,4 +50,4 @@ Thumbs.db
 backend/schedule_output.json
 
 # ── Article (PDF, переводы, скрипты) ─────────────────────────────────────────
-article/
+other/

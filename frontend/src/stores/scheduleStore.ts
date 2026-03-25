@@ -1,60 +1,33 @@
-import { makeAutoObservable, runInAction } from "mobx";
+import {
+  checkHealth,
+  deleteScheduleFromDb,
+  fetchHalls,
+  fetchSchedulesFromDb,
+  generateScheduleViaWs,
+  saveScheduleToDb,
+} from "@/services/api";
 import type {
   CinemaSchedule,
-  ScheduleShow,
-  HallDaySchedule,
-  HallConfig,
   GenerationConfig,
   GenerationStatus,
   GenerationStep,
+  HallDaySchedule,
   ScheduleMetrics,
+  ScheduleShow,
 } from "@/types/schedule";
+import { makeAutoObservable, runInAction } from "mobx";
 import { movieStore } from "./movieStore";
-import { generateScheduleViaWs, checkHealth } from "@/services/api";
 
-/** Демо-залы */
-const DEMO_HALLS: HallConfig[] = [
-  {
-    id: "h1",
-    name: "Зал 1 — Большой",
-    capacity: 300,
-    hallType: "2D",
-    cleaningMinutes: 15,
-    openTime: "09:00",
-    closeTime: "23:30",
-    enabled: true,
-  },
-  {
-    id: "h2",
-    name: "Зал 2 — IMAX",
-    capacity: 200,
-    hallType: "IMAX",
-    cleaningMinutes: 20,
-    openTime: "10:00",
-    closeTime: "23:00",
-    enabled: true,
-  },
-  {
-    id: "h3",
-    name: "Зал 3 — Комфорт",
-    capacity: 120,
-    hallType: "3D",
-    cleaningMinutes: 15,
-    openTime: "09:00",
-    closeTime: "23:30",
-    enabled: true,
-  },
-  {
-    id: "h4",
-    name: "Зал 4 — VIP",
-    capacity: 50,
-    hallType: "VIP",
-    cleaningMinutes: 20,
-    openTime: "11:00",
-    closeTime: "23:00",
-    enabled: true,
-  },
-];
+/** Параметры генерации по умолчанию */
+const DEFAULT_CONFIG: Omit<GenerationConfig, "halls"> = {
+  scheduleName: "Расписание на неделю",
+  days: 7,
+  staggerMinutes: 5,
+  maxColumnsPerIteration: 100,
+  lpTimeLimitSeconds: 30,
+  antiCrowding: true,
+  childrenDaytimeOnly: true,
+};
 
 /** Генерация демо-расписания */
 function generateDemoSchedule(config: GenerationConfig): CinemaSchedule {
@@ -164,14 +137,8 @@ class ScheduleStore {
 
   /** Конфигурация генерации */
   config: GenerationConfig = {
-    scheduleName: "Расписание на неделю",
-    days: 7,
-    halls: [...DEMO_HALLS],
-    staggerMinutes: 5,
-    maxColumnsPerIteration: 100,
-    lpTimeLimitSeconds: 30,
-    antiCrowding: true,
-    childrenDaytimeOnly: true,
+    ...DEFAULT_CONFIG,
+    halls: [],
   };
 
   generationStatus: GenerationStatus = "idle";
@@ -249,6 +216,10 @@ class ScheduleStore {
       this.currentScheduleId =
         this.schedules.length > 0 ? this.schedules[0].id : null;
     }
+    // Удаляем из БД асинхронно
+    deleteScheduleFromDb(id).catch((e) =>
+      console.warn("deleteScheduleFromDb failed:", e),
+    );
   }
 
   /** Обновить конфигурацию */
@@ -262,16 +233,63 @@ class ScheduleStore {
     if (hall) hall.enabled = !hall.enabled;
   }
 
+  /** Загрузить залы из API */
+  async fetchHalls() {
+    try {
+      const halls = await fetchHalls();
+      runInAction(() => {
+        this.config.halls = halls;
+      });
+    } catch (e) {
+      console.warn("fetchHalls failed, keeping current halls:", e);
+    }
+  }
+
+  /** Загрузить историю расписаний из БД */
+  async loadSchedules() {
+    try {
+      const schedules = await fetchSchedulesFromDb();
+      runInAction(() => {
+        this.schedules = schedules;
+        if (schedules.length > 0 && !this.currentScheduleId) {
+          this.currentScheduleId = schedules[0].id;
+        }
+      });
+    } catch (e) {
+      console.warn("loadSchedules failed:", e);
+    }
+  }
+
   /** Генерация расписания через реальный бэкенд (WebSocket) */
   async generateSchedule() {
     this.generationStatus = "generating";
     this.generationProgress = 0;
     this.generationSteps = [
-      { label: "Инициализация", description: "Подготовка данных и параметров", status: "active" },
-      { label: "Генерация столбцов", description: "Column Generation — поиск допустимых расписаний залов", status: "pending" },
-      { label: "LP-релаксация", description: "Решение линейной релаксации мастер-задачи", status: "pending" },
-      { label: "Целочисленное решение", description: "MILP — получение финального расписания", status: "pending" },
-      { label: "Пост-обработка", description: "Расчёт прогнозов и метрик качества", status: "pending" },
+      {
+        label: "Инициализация",
+        description: "Подготовка данных и параметров",
+        status: "active",
+      },
+      {
+        label: "Генерация столбцов",
+        description: "Column Generation — поиск допустимых расписаний залов",
+        status: "pending",
+      },
+      {
+        label: "LP-релаксация",
+        description: "Решение линейной релаксации мастер-задачи",
+        status: "pending",
+      },
+      {
+        label: "Целочисленное решение",
+        description: "MILP — получение финального расписания",
+        status: "pending",
+      },
+      {
+        label: "Пост-обработка",
+        description: "Расчёт прогнозов и метрик качества",
+        status: "pending",
+      },
     ];
 
     // Проверяем доступность бэкенда
@@ -307,6 +325,10 @@ class ScheduleStore {
                 status: "completed" as const,
               }));
             });
+            // Сохраняем в БД асинхронно (не блокируем UI)
+            saveScheduleToDb(schedule).catch((e) =>
+              console.warn("saveSchedule failed:", e),
+            );
             resolve();
           },
           onError: (message) => {
@@ -358,7 +380,9 @@ class ScheduleStore {
         this.generationProgress = 100;
       });
     } catch {
-      runInAction(() => { this.generationStatus = "error"; });
+      runInAction(() => {
+        this.generationStatus = "error";
+      });
     }
   }
 
