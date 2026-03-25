@@ -2,8 +2,10 @@ import { authStore } from "@/stores/authStore";
 import { Clapperboard, Eye, EyeOff, LogIn } from "lucide-react";
 import { observer } from "mobx-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export const LoginPage = observer(function LoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("admin@kinolent.ru");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -14,6 +16,7 @@ export const LoginPage = observer(function LoginPage() {
     setLocalError(null);
     try {
       await authStore.login(email, password);
+      navigate("/", { replace: true });
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : "Ошибка входа");
     }

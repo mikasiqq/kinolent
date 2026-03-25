@@ -1,20 +1,4 @@
-import { useEffect, useState } from "react";
-import { observer } from "mobx-react";
-import {
-  Users,
-  UserPlus,
-  Shield,
-  Eye,
-  Settings2,
-  Pencil,
-  Trash2,
-  CircleCheck,
-  CircleMinus,
-  Search,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -30,16 +16,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { authStore } from "@/stores/authStore";
-import { ROLE_LABELS } from "@/types/user";
-import type { UserRole } from "@/types/user";
-import {
-  fetchUsers,
-  createUserApi,
-  updateUserApi,
-  deleteUserApi,
-} from "@/services/api";
 import { cn } from "@/lib/utils";
+import {
+  createUserApi,
+  deleteUserApi,
+  fetchUsers,
+  updateUserApi,
+} from "@/services/api";
+import { authStore } from "@/stores/authStore";
+import type { UserRole } from "@/types/user";
+import { ROLE_LABELS } from "@/types/user";
+import {
+  CircleCheck,
+  CircleMinus,
+  Eye,
+  Pencil,
+  Search,
+  Settings2,
+  Shield,
+  Trash2,
+  UserPlus,
+  Users,
+} from "lucide-react";
+import { observer } from "mobx-react";
+import { useEffect, useState } from "react";
 
 // ── Типы ─────────────────────────────────────────────────────────────────────
 
@@ -170,7 +170,9 @@ export const UsersPage = observer(function UsersPage() {
           isActive: form.isActive,
         });
         setUsers((prev) =>
-          prev.map((u) => (u.id === editingUser.id ? (updated as UserRecord) : u))
+          prev.map((u) =>
+            u.id === editingUser.id ? (updated as UserRecord) : u,
+          ),
         );
       } else {
         const created = await createUserApi({
@@ -183,8 +185,7 @@ export const UsersPage = observer(function UsersPage() {
       }
       setDialogOpen(false);
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Ошибка сохранения";
+      const msg = err instanceof Error ? err.message : "Ошибка сохранения";
       setFormError(msg.includes("400") ? "Email уже занят" : msg);
     } finally {
       setSaving(false);
@@ -212,12 +213,13 @@ export const UsersPage = observer(function UsersPage() {
   const filtered = users.filter(
     (u) =>
       u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())
+      u.email.toLowerCase().includes(search.toLowerCase()),
   );
 
   // ── Статистика ─────────────────────────────────────────────────────────────
 
-  const countByRole = (role: UserRole) => users.filter((u) => u.role === role).length;
+  const countByRole = (role: UserRole) =>
+    users.filter((u) => u.role === role).length;
 
   // ── Рендер ────────────────────────────────────────────────────────────────
 
@@ -296,7 +298,7 @@ export const UsersPage = observer(function UsersPage() {
                 color === "blue" &&
                   "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400",
                 color === "slate" &&
-                  "bg-slate-100 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400"
+                  "bg-slate-100 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400",
               )}
             >
               {icon}
@@ -384,7 +386,7 @@ export const UsersPage = observer(function UsersPage() {
                         <span
                           className={cn(
                             "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
-                            ROLE_BADGE[user.role]
+                            ROLE_BADGE[user.role],
                           )}
                         >
                           {ROLE_ICON[user.role]}
@@ -472,7 +474,9 @@ export const UsersPage = observer(function UsersPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {editingUser ? "Редактировать пользователя" : "Новый пользователь"}
+              {editingUser
+                ? "Редактировать пользователя"
+                : "Новый пользователь"}
             </DialogTitle>
             <DialogDescription>
               {editingUser
@@ -489,7 +493,9 @@ export const UsersPage = observer(function UsersPage() {
                 id="u-name"
                 placeholder="Иван Иванов"
                 value={form.name}
-                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, name: e.target.value }))
+                }
                 required
               />
             </div>
@@ -503,11 +509,15 @@ export const UsersPage = observer(function UsersPage() {
                 placeholder="user@kinolent.ru"
                 value={form.email}
                 disabled={!!editingUser}
-                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, email: e.target.value }))
+                }
                 required
               />
               {editingUser && (
-                <p className="text-xs text-muted-foreground">Email изменить нельзя</p>
+                <p className="text-xs text-muted-foreground">
+                  Email изменить нельзя
+                </p>
               )}
             </div>
 
@@ -566,7 +576,8 @@ export const UsersPage = observer(function UsersPage() {
                   "Полный доступ: управление пользователями и данными"}
                 {form.role === "manager" &&
                   "Управление фильмами, залами и расписаниями"}
-                {form.role === "viewer" && "Только просмотр расписания и каталога"}
+                {form.role === "viewer" &&
+                  "Только просмотр расписания и каталога"}
               </p>
             </div>
 
@@ -623,8 +634,8 @@ export const UsersPage = observer(function UsersPage() {
                 {saving
                   ? "Сохранение..."
                   : editingUser
-                  ? "Сохранить"
-                  : "Создать"}
+                    ? "Сохранить"
+                    : "Создать"}
               </Button>
             </DialogFooter>
           </form>

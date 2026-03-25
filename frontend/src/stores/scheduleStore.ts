@@ -4,8 +4,12 @@ import {
   fetchHalls,
   fetchSchedulesFromDb,
   generateScheduleViaWs,
+  patchSchedule,
   saveScheduleToDb,
+  submitRating,
+  fetchRatings,
 } from "@/services/api";
+import type { RatingsDetailResponse } from "@/services/api";
 import type {
   CinemaSchedule,
   GenerationConfig,
@@ -416,6 +420,206 @@ class ScheduleStore {
     this.generationStatus = "idle";
     this.generationProgress = 0;
     this.generationSteps = [];
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SCHEDULE EDITING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Переименовать расписание */
+  async renameSchedule(id: string, name: string) {
+    const schedule = this.schedules.find((s) => s.id === id);
+    if (!schedule) return;
+    schedule.name = name;
+    patchSchedule(id, { name }).catch((e) =>
+      console.warn("patchSchedule rename failed:", e),
+    );
+  }
+
+  /** Удалить конкретный сеанс из расписания */
+  removeShow(showId: string) {
+    const schedule = this.currentSchedule;
+    if (!schedule) return;
+
+    for (const hs of schedule.hallSchedules) {
+      const idx = hs.shows.findIndex((s) => s.id === showId);
+      if (idx !== -1) {
+        const show = hs.shows[idx];
+        schedule.totalRevenue -= show.predictedRevenue;
+        schedule.totalAttendance -= show.predictedAttendance;
+        schedule.totalShows -= 1;
+        hs.totalRevenue -= show.predictedRevenue;
+        hs.totalAttendance -= show.predictedAttendance;
+        hs.shows.splice(idx, 1);
+        break;
+      }
+    }
+    this._persistCurrentSchedule();
+  }
+
+  /** Обновить время сеанса */
+  updateShowTime(showId: string, newStartMinutes: number) {
+    const schedule = this.currentSchedule;
+    if (!schedule) return;
+
+    for (const hs of schedule.hallSchedules) {
+      const show = hs.shows.find((s) => s.id === showId);
+      if (show) {
+        const duration = show.endMinutes - show.startMinutes;
+        show.startMinutes = newStartMinutes;
+        show.endMinutes = newStartMinutes + duration;
+        break;
+      }
+    }
+    this._persistCurrentSchedule();
+  }
+
+  /** Заменить фильм в сеансе */
+  replaceShowMovie(
+    showId: string,
+    movie: {
+      id: string;
+      title: string;
+      duration: number;
+      genre: string;
+      ageRating: string;
+      posterUrl?: string;
+    },
+  ) {
+    const schedule = this.currentSchedule;
+    if (!schedule) return;
+
+    for (const hs of schedule.hallSchedules) {
+      const show = hs.shows.find((s) => s.id === showId);
+      if (show) {
+        show.movieId = movie.id;
+        show.movieTitle = movie.title;
+        show.movieDuration = movie.duration;
+        show.genre = movie.genre;
+        show.ageRating = movie.ageRating;
+        show.posterUrl = movie.posterUrl;
+        // Adjust endMinutes (keep ad block)
+        show.endMinutes = show.startMinutes + movie.duration + show.adBlockMinutes;
+        break;
+      }
+    }
+    this._persistCurrentSchedule();
+  }
+
+  /** Переместить сеанс между залами / днями */
+  moveShow(
+    showId: string,
+    targetHallId: string,
+    targetHallName: string,
+    targetDay: number,
+  ) {
+    const schedule = this.currentSchedule;
+    if (!schedule) return;
+
+    // Find and remove from source
+    let show: ScheduleShow | null = null;
+    for (const hs of schedule.hallSchedules) {
+      const idx = hs.shows.findIndex((s) => s.id === showId);
+      if (idx !== -1) {
+        show = { ...hs.shows[idx] };
+        hs.shows.splice(idx, 1);
+        hs.totalRevenue -= show.predictedRevenue;
+        hs.totalAttendance -= show.predictedAttendance;
+        break;
+      }
+    }
+    if (!show) return;
+
+    // Update show
+    show.hallId = targetHallId;
+    show.hallName = targetHallName;
+    show.day = targetDay;
+
+    // Find or create target HallDaySchedule
+    let target = schedule.hallSchedules.find(
+      (hs) => hs.hallId === targetHallId && hs.day === targetDay,
+    );
+    if (!target) {
+      target = {
+        hallId: targetHallId,
+        hallName: targetHallName,
+        day: targetDay,
+        shows: [],
+        totalRevenue: 0,
+        totalAttendance: 0,
+      };
+      schedule.hallSchedules.push(target);
+    }
+    target.shows.push(show);
+    target.shows.sort((a, b) => a.startMinutes - b.startMinutes);
+    target.totalRevenue += show.predictedRevenue;
+    target.totalAttendance += show.predictedAttendance;
+
+    this._persistCurrentSchedule();
+  }
+
+  /** Persist current schedule to DB */
+  private _persistCurrentSchedule() {
+    const s = this.currentSchedule;
+    if (!s) return;
+    patchSchedule(s.id, {
+      data: s as unknown as Record<string, unknown>,
+      totalRevenue: s.totalRevenue,
+      totalAttendance: s.totalAttendance,
+      totalShows: s.totalShows,
+    }).catch((e) => console.warn("patchSchedule failed:", e));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SCHEDULE RATINGS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Рейтинги текущего расписания */
+  ratingsData: RatingsDetailResponse | null = null;
+  ratingsLoading = false;
+
+  /** Загрузить рейтинги текущего расписания */
+  async loadRatings(scheduleId: string) {
+    this.ratingsLoading = true;
+    try {
+      const data = await fetchRatings(scheduleId);
+      runInAction(() => {
+        this.ratingsData = data;
+      });
+    } catch (e) {
+      console.warn("loadRatings failed:", e);
+    } finally {
+      runInAction(() => {
+        this.ratingsLoading = false;
+      });
+    }
+  }
+
+  /** Отправить оценку */
+  async rateSchedule(scheduleId: string, rating: number, comment?: string) {
+    try {
+      const result = await submitRating(scheduleId, rating, comment);
+      runInAction(() => {
+        if (this.ratingsData) {
+          this.ratingsData.averageRating = result.averageRating;
+          this.ratingsData.totalRatings = result.totalRatings;
+          this.ratingsData.myRating = result.myRating;
+          this.ratingsData.myComment = result.myComment;
+        } else {
+          this.ratingsData = {
+            averageRating: result.averageRating,
+            totalRatings: result.totalRatings,
+            myRating: result.myRating,
+            myComment: result.myComment,
+            ratings: [],
+          };
+        }
+      });
+      // Reload full ratings
+      this.loadRatings(scheduleId);
+    } catch (e) {
+      console.warn("rateSchedule failed:", e);
+    }
   }
 }
 

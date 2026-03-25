@@ -506,7 +506,7 @@ export async function createUserApi(data: {
 
 export async function updateUserApi(
   id: string,
-  data: { name: string; role: string; isActive: boolean }
+  data: { name: string; role: string; isActive: boolean },
 ): Promise<unknown> {
   const res = await fetch(`${API_BASE}/api/users/${id}`, {
     method: "PUT",
@@ -522,5 +522,70 @@ export async function deleteUserApi(id: string): Promise<void> {
     method: "DELETE",
     headers: authHeaders(),
   });
-  if (!res.ok && res.status !== 404) throw new Error(`deleteUser: ${res.status}`);
+  if (!res.ok && res.status !== 404)
+    throw new Error(`deleteUser: ${res.status}`);
+}
+
+// ── Schedule Editing API ──────────────────────────────────────────────────────
+
+export async function patchSchedule(
+  id: string,
+  data: {
+    name?: string;
+    data?: Record<string, unknown>;
+    totalRevenue?: number;
+    totalAttendance?: number;
+    totalShows?: number;
+  },
+): Promise<unknown> {
+  const res = await fetch(`${API_BASE}/api/schedules/${id}`, {
+    method: "PATCH",
+    headers: jsonHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`patchSchedule: ${res.status}`);
+  return res.json();
+}
+
+// ── Schedule Rating API ───────────────────────────────────────────────────────
+
+export interface RatingResponse {
+  averageRating: number;
+  totalRatings: number;
+  myRating: number | null;
+  myComment: string | null;
+}
+
+export interface RatingsDetailResponse extends RatingResponse {
+  ratings: {
+    id: string;
+    userName: string;
+    rating: number;
+    comment: string | null;
+    createdAt: string;
+  }[];
+}
+
+export async function submitRating(
+  scheduleId: string,
+  rating: number,
+  comment?: string,
+): Promise<RatingResponse> {
+  const res = await fetch(`${API_BASE}/api/schedules/${scheduleId}/rate`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify({ rating, comment: comment || null }),
+  });
+  if (!res.ok) throw new Error(`submitRating: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchRatings(
+  scheduleId: string,
+): Promise<RatingsDetailResponse> {
+  const res = await fetch(`${API_BASE}/api/schedules/${scheduleId}/ratings`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`fetchRatings: ${res.status}`);
+  return res.json();
 }

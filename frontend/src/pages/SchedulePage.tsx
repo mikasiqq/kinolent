@@ -1,5 +1,6 @@
 import { observer } from "mobx-react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import {
   CalendarDays,
   Sparkles,
@@ -9,6 +10,8 @@ import {
   AlertCircle,
   Users,
   BarChart3,
+  Pencil,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,13 +19,28 @@ import { Tabs } from "@/components/ui/tabs";
 import { HallTimeline } from "@/components/schedule/HallTimeline";
 import { ScheduleStats } from "@/components/schedule/ScheduleStats";
 import { DaySelector } from "@/components/schedule/DaySelector";
+import { ShowEditDialog } from "@/components/schedule/ShowEditDialog";
+import { ScheduleRenameDialog } from "@/components/schedule/ScheduleRenameDialog";
+import { RatingBadge, RatingDialog } from "@/components/schedule/RatingWidget";
 import { scheduleStore } from "@/stores/scheduleStore";
+import type { ScheduleShow } from "@/types/schedule";
 import { DAY_NAMES_FULL } from "@/types/schedule";
 import { cn } from "@/lib/utils";
 
 export const SchedulePage = observer(function SchedulePage() {
   const navigate = useNavigate();
   const schedule = scheduleStore.currentSchedule;
+
+  // Editing state
+  const [editingShow, setEditingShow] = useState<ScheduleShow | null>(null);
+  const [showEditOpen, setShowEditOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [ratingOpen, setRatingOpen] = useState(false);
+
+  function handleShowClick(show: ScheduleShow) {
+    setEditingShow(show);
+    setShowEditOpen(true);
+  }
 
   return (
     <div className="space-y-8">
@@ -105,6 +123,13 @@ export const SchedulePage = observer(function SchedulePage() {
                 <span className="font-semibold text-foreground">
                   {schedule.name}
                 </span>
+                <button
+                  onClick={() => setRenameOpen(true)}
+                  title="Переименовать"
+                  className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
               </div>
               <div className="hidden sm:block h-5 w-px bg-border" />
               <Badge variant="outline" className="rounded-lg">
@@ -124,6 +149,20 @@ export const SchedulePage = observer(function SchedulePage() {
                   ⚡ Gap {schedule.metrics.gapPct.toFixed(1)}%
                 </Badge>
               )}
+              <div className="hidden sm:block h-5 w-px bg-border" />
+              <RatingBadge
+                scheduleId={schedule.id}
+                onOpenDialog={() => setRatingOpen(true)}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 h-8"
+                onClick={() => setRatingOpen(true)}
+              >
+                <Star className="h-3.5 w-3.5" />
+                Оценить
+              </Button>
               <div className="flex items-center gap-1.5 text-muted-foreground ml-auto">
                 <Clock className="h-3 w-3" />
                 <span className="text-xs">
@@ -163,6 +202,7 @@ export const SchedulePage = observer(function SchedulePage() {
                     shows={hs.shows}
                     hallName={hs.hallName}
                     hallIndex={index}
+                    onShowClick={handleShowClick}
                   />
                 ))}
                 {scheduleStore.currentDaySchedules.length === 0 && (
@@ -176,18 +216,48 @@ export const SchedulePage = observer(function SchedulePage() {
           </div>
 
           {/* Таблица сеансов */}
-          <ShowsTable />
+          <ShowsTable onShowClick={handleShowClick} />
         </>
       ) : (
         /* Пустое состояние */
         <EmptyScheduleState onGenerate={() => navigate("/generate")} />
+      )}
+
+      {/* Dialogs */}
+      <ShowEditDialog
+        show={editingShow}
+        open={showEditOpen}
+        onOpenChange={(o) => {
+          setShowEditOpen(o);
+          if (!o) setEditingShow(null);
+        }}
+      />
+      {schedule && (
+        <>
+          <ScheduleRenameDialog
+            scheduleId={schedule.id}
+            currentName={schedule.name}
+            open={renameOpen}
+            onOpenChange={setRenameOpen}
+          />
+          <RatingDialog
+            scheduleId={schedule.id}
+            scheduleName={schedule.name}
+            open={ratingOpen}
+            onOpenChange={setRatingOpen}
+          />
+        </>
       )}
     </div>
   );
 });
 
 /** Таблица сеансов дня */
-const ShowsTable = observer(function ShowsTable() {
+const ShowsTable = observer(function ShowsTable({
+  onShowClick,
+}: {
+  onShowClick: (show: ScheduleShow) => void;
+}) {
   const shows = scheduleStore.currentDayShows;
   if (shows.length === 0) return null;
 
@@ -222,6 +292,8 @@ const ShowsTable = observer(function ShowsTable() {
               </th>
               <th className="text-right px-6 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">
                 Выручка
+              </th>
+              <th className="text-right px-6 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider w-16">
               </th>
             </tr>
           </thead>
@@ -274,6 +346,15 @@ const ShowsTable = observer(function ShowsTable() {
                   </td>
                   <td className="px-6 py-3 text-right font-semibold text-emerald-600">
                     {(show.predictedRevenue / 1000).toFixed(0)}K ₽
+                  </td>
+                  <td className="px-6 py-3 text-right">
+                    <button
+                      onClick={() => onShowClick(show)}
+                      title="Редактировать сеанс"
+                      className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
                   </td>
                 </tr>
               );

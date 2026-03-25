@@ -23,9 +23,7 @@ const BASE_NAV_ITEMS = [
   { to: "/generate", icon: Sparkles, label: "Генерация" },
 ];
 
-const ADMIN_NAV_ITEMS = [
-  { to: "/users", icon: Users, label: "Пользователи" },
-];
+const ADMIN_NAV_ITEMS = [{ to: "/users", icon: Users, label: "Пользователи" }];
 
 export const AppLayout = observer(function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

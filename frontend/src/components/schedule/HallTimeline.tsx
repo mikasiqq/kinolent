@@ -17,6 +17,7 @@ interface TimelineProps {
   hallIndex: number;
   startHour?: number;
   endHour?: number;
+  onShowClick?: (show: ScheduleShow) => void;
 }
 
 /** Временная шкала одного зала на один день */
@@ -26,6 +27,7 @@ export const HallTimeline = observer(function HallTimeline({
   hallIndex,
   startHour = 9,
   endHour = 24,
+  onShowClick,
 }: TimelineProps) {
   const totalMinutes = (endHour - startHour) * 60;
   const startOffset = startHour * 60;
@@ -81,6 +83,7 @@ export const HallTimeline = observer(function HallTimeline({
               <Tooltip key={show.id}>
                 <TooltipTrigger asChild>
                   <div
+                    onClick={() => onShowClick?.(show)}
                     className={cn(
                       "absolute top-1 bottom-1 rounded-md cursor-pointer transition-all duration-200",
                       "hover:ring-2 hover:ring-primary hover:z-10 hover:scale-y-110",
