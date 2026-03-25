@@ -7,6 +7,7 @@ import {
   fetchSchedulesFromDb,
   generateScheduleViaWs,
   patchSchedule,
+  recalculateSchedule,
   saveScheduleToDb,
   submitRating,
 } from "@/services/api";
@@ -483,6 +484,7 @@ class ScheduleStore {
         break;
       }
     }
+    this._markStale();
     this._persistCurrentSchedule();
   }
 
@@ -513,6 +515,7 @@ class ScheduleStore {
         break;
       }
     }
+    this._markStale();
     this._persistCurrentSchedule();
     return null;
   }
@@ -558,6 +561,7 @@ class ScheduleStore {
         break;
       }
     }
+    this._markStale();
     this._persistCurrentSchedule();
     return null;
   }
@@ -633,6 +637,84 @@ class ScheduleStore {
     target.totalRevenue += show.predictedRevenue;
     target.totalAttendance += show.predictedAttendance;
 
+    this._markStale();
+    this._persistCurrentSchedule();
+    return null;
+  }
+
+  /**
+   * Добавить новый сеанс в расписание.
+   * Возвращает строку ошибки (пересечение) или null при успехе.
+   */
+  addShow(params: {
+    movieId: string;
+    movieTitle: string;
+    movieDuration: number;
+    genre: string;
+    ageRating: string;
+    posterUrl?: string;
+    hallId: string;
+    hallName: string;
+    day: number;
+    startMinutes: number;
+    adBlockMinutes?: number;
+  }): string | null {
+    const schedule = this.currentSchedule;
+    if (!schedule) return "Нет активного расписания";
+
+    const adBlock = params.adBlockMinutes ?? 15;
+    const endMinutes = params.startMinutes + params.movieDuration + adBlock;
+
+    // Проверка пересечений
+    const conflict = this.checkOverlap(
+      params.hallId,
+      params.day,
+      params.startMinutes,
+      endMinutes,
+    );
+    if (conflict) {
+      return `Пересечение с «${conflict.movieTitle}» (${this._fmtTime(conflict.startMinutes)}–${this._fmtTime(conflict.endMinutes)})`;
+    }
+
+    const newShow: ScheduleShow = {
+      id: `show-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      movieId: params.movieId,
+      movieTitle: params.movieTitle,
+      movieDuration: params.movieDuration,
+      adBlockMinutes: adBlock,
+      hallId: params.hallId,
+      hallName: params.hallName,
+      day: params.day,
+      startMinutes: params.startMinutes,
+      endMinutes,
+      predictedAttendance: 0,
+      predictedRevenue: 0,
+      genre: params.genre,
+      ageRating: params.ageRating,
+      posterUrl: params.posterUrl,
+    };
+
+    // Найти или создать HallDaySchedule
+    let target = schedule.hallSchedules.find(
+      (hs) => hs.hallId === params.hallId && hs.day === params.day,
+    );
+    if (!target) {
+      target = {
+        hallId: params.hallId,
+        hallName: params.hallName,
+        day: params.day,
+        shows: [],
+        totalRevenue: 0,
+        totalAttendance: 0,
+      };
+      schedule.hallSchedules.push(target);
+    }
+
+    target.shows.push(newShow);
+    target.shows.sort((a, b) => a.startMinutes - b.startMinutes);
+    schedule.totalShows += 1;
+
+    this._markStale();
     this._persistCurrentSchedule();
     return null;
   }
@@ -654,6 +736,85 @@ class ScheduleStore {
       totalAttendance: s.totalAttendance,
       totalShows: s.totalShows,
     }).catch((e) => console.warn("patchSchedule failed:", e));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RECALCULATION (DemandForecaster)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  isRecalculating = false;
+  metricsStale = false;
+
+  /** Пометить метрики как устаревшие (после любого редактирования) */
+  private _markStale() {
+    this.metricsStale = true;
+  }
+
+  /**
+   * Пересчитать прогнозы посещаемости и выручки через бэкенд (DemandForecaster).
+   * Обновляет все shows, hallSchedules totals и schedule totals.
+   */
+  async recalculateMetrics() {
+    const schedule = this.currentSchedule;
+    if (!schedule) return;
+
+    const allShows = schedule.hallSchedules.flatMap((hs) =>
+      hs.shows.map((s) => ({
+        id: s.id,
+        movieId: s.movieId,
+        hallId: s.hallId,
+        day: s.day,
+        startMinutes: s.startMinutes,
+        endMinutes: s.endMinutes,
+        adBlockMinutes: s.adBlockMinutes,
+      })),
+    );
+
+    if (allShows.length === 0) {
+      runInAction(() => {
+        this.metricsStale = false;
+      });
+      return;
+    }
+
+    this.isRecalculating = true;
+    try {
+      const result = await recalculateSchedule(allShows);
+
+      runInAction(() => {
+        // Обновить каждый сеанс
+        const byId = new Map(result.shows.map((s) => [s.id, s]));
+
+        for (const hs of schedule.hallSchedules) {
+          let hsRevenue = 0;
+          let hsAttendance = 0;
+          for (const show of hs.shows) {
+            const updated = byId.get(show.id);
+            if (updated) {
+              show.predictedAttendance = updated.predictedAttendance;
+              show.predictedRevenue = updated.predictedRevenue;
+            }
+            hsRevenue += show.predictedRevenue;
+            hsAttendance += show.predictedAttendance;
+          }
+          hs.totalRevenue = hsRevenue;
+          hs.totalAttendance = hsAttendance;
+        }
+
+        schedule.totalRevenue = result.totalRevenue;
+        schedule.totalAttendance = result.totalAttendance;
+        this.metricsStale = false;
+        this.isRecalculating = false;
+      });
+
+      // Сохранить в БД
+      this._persistCurrentSchedule();
+    } catch (e) {
+      console.warn("recalculate failed:", e);
+      runInAction(() => {
+        this.isRecalculating = false;
+      });
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

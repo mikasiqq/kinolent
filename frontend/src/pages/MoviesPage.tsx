@@ -1,13 +1,13 @@
-import { useState, useCallback } from "react";
-import { observer } from "mobx-react";
-import { Plus, Film, Sparkles, Popcorn } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { MovieCard } from "@/components/movies/MovieCard";
 import { MovieDialog } from "@/components/movies/MovieDialog";
-import { MovieStats } from "@/components/movies/MovieStats";
 import { MovieFilters } from "@/components/movies/MovieFilters";
+import { MovieStats } from "@/components/movies/MovieStats";
+import { Button } from "@/components/ui/button";
 import { movieStore } from "@/stores/movieStore";
 import type { Movie } from "@/types/movie";
+import { Film, Plus, Popcorn, Sparkles } from "lucide-react";
+import { observer } from "mobx-react";
+import { useCallback, useState } from "react";
 
 export const MoviesPage = observer(function MoviesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -109,6 +109,7 @@ export const MoviesPage = observer(function MoviesPage() {
 
       {/* Диалог добавления/редактирования */}
       <MovieDialog
+        key={editingMovie?.id ?? "new"}
         open={dialogOpen}
         onOpenChange={handleDialogClose}
         movie={editingMovie}

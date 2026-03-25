@@ -8,6 +8,7 @@ PATCH  /api/schedules/{id}         — обновить (имя, данные)
 DELETE /api/schedules/{id}         — удалить расписание
 POST   /api/schedules/{id}/rate    — оценить расписание
 GET    /api/schedules/{id}/ratings — рейтинги расписания
+POST   /api/schedules/recalculate  — пересчитать прогнозы посещаемости/выручки
 """
 from __future__ import annotations
 
@@ -19,8 +20,10 @@ from sqlalchemy import select, func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps import get_current_user, require_any, require_manager
-from db.models import SavedSchedule, ScheduleRating, User
+from db.models import Hall as HallDB, Movie as MovieDB, SavedSchedule, ScheduleRating, User
 from db.session import get_db
+from scheduler.demand_forecaster import DemandForecaster
+from scheduler.models import Hall as SchedHall, Movie as SchedMovie, SchedulerConfig
 
 router = APIRouter(prefix="/api/schedules", tags=["schedules"])
 
@@ -49,6 +52,20 @@ class SchedulePatchBody(BaseModel):
 class RatingBody(BaseModel):
     rating: int = Field(..., ge=1, le=5)
     comment: str | None = None
+
+
+class RecalcShowIn(BaseModel):
+    id: str
+    movieId: str
+    hallId: str
+    day: int
+    startMinutes: int
+    endMinutes: int
+    adBlockMinutes: int = 15
+
+
+class RecalcRequest(BaseModel):
+    shows: list[RecalcShowIn]
 
 
 # ── Эндпоинты ────────────────────────────────────────────────────────────────
@@ -115,6 +132,97 @@ async def delete_schedule(schedule_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "Schedule not found")
     await db.delete(s)
     await db.commit()
+
+
+# ── POST /recalculate — пересчёт прогнозов ────────────────────────────────────
+
+@router.post("/recalculate", dependencies=[Depends(require_any)])
+async def recalculate_predictions(
+    body: RecalcRequest, db: AsyncSession = Depends(get_db)
+):
+    """
+    Пересчитывает прогнозы посещаемости и выручки для списка сеансов,
+    используя модель DemandForecaster (SilverScheduler).
+    Возвращает обновлённые predictedAttendance / predictedRevenue / totals.
+    """
+    # Загрузить фильмы и залы из БД
+    movie_ids = list({s.movieId for s in body.shows})
+    hall_ids = list({s.hallId for s in body.shows})
+
+    movies_result = await db.execute(select(MovieDB).where(MovieDB.id.in_(movie_ids)))
+    halls_result = await db.execute(select(HallDB).where(HallDB.id.in_(hall_ids)))
+
+    db_movies = {m.id: m for m in movies_result.scalars().all()}
+    db_halls = {h.id: h for h in halls_result.scalars().all()}
+
+    # Конвертировать DB-модели → scheduler-модели
+    sched_movies: dict[str, SchedMovie] = {}
+    for mid, m in db_movies.items():
+        is_child = m.age_rating in ("0+", "6+")
+        sched_movies[mid] = SchedMovie(
+            id=m.id,
+            title=m.title,
+            duration_minutes=m.duration,
+            ad_block_minutes=15,
+            popularity_score=m.popularity / 10.0,  # DB: 1-10, model: 0-1
+            release_week=1,
+            is_children=is_child,
+            genres=[m.genre] if m.genre else [],
+        )
+
+    sched_halls: dict[str, SchedHall] = {}
+    for hid, h in db_halls.items():
+        sched_halls[hid] = SchedHall(
+            id=h.id,
+            name=h.name,
+            capacity=h.capacity,
+        )
+
+    # Создать прогнозист
+    config = SchedulerConfig()
+    forecaster = DemandForecaster(config=config)
+
+    # Пересчитать каждый сеанс
+    results: list[dict] = []
+    total_revenue = 0.0
+    total_attendance = 0
+
+    for show_in in body.shows:
+        movie = sched_movies.get(show_in.movieId)
+        hall = sched_halls.get(show_in.hallId)
+
+        if not movie or not hall:
+            # Если не найден — оставляем нули
+            results.append({
+                "id": show_in.id,
+                "predictedAttendance": 0,
+                "predictedRevenue": 0,
+            })
+            continue
+
+        attendance = forecaster.predict_attendance(
+            movie, hall, show_in.day, show_in.startMinutes
+        )
+        revenue = forecaster.predict_revenue(
+            movie, hall, show_in.day, show_in.startMinutes
+        )
+
+        att = round(attendance)
+        rev = round(revenue, 2)
+        total_attendance += att
+        total_revenue += rev
+
+        results.append({
+            "id": show_in.id,
+            "predictedAttendance": att,
+            "predictedRevenue": rev,
+        })
+
+    return {
+        "shows": results,
+        "totalAttendance": total_attendance,
+        "totalRevenue": round(total_revenue, 2),
+    }
 
 
 # ── PATCH — обновить расписание ────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import { AddShowDialog } from "@/components/schedule/AddShowDialog";
 import { DaySelector } from "@/components/schedule/DaySelector";
 import { HallTimeline } from "@/components/schedule/HallTimeline";
 import { RatingBadge, RatingDialog } from "@/components/schedule/RatingWidget";
@@ -14,10 +15,13 @@ import { DAY_NAMES_FULL } from "@/types/schedule";
 import {
   AlertCircle,
   BarChart3,
+  Calculator,
   CalendarDays,
   Clock,
   Info,
+  Loader2,
   Pencil,
+  Plus,
   Sparkles,
   Star,
   Trash2,
@@ -36,6 +40,7 @@ export const SchedulePage = observer(function SchedulePage() {
   const [showEditOpen, setShowEditOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [ratingOpen, setRatingOpen] = useState(false);
+  const [addShowOpen, setAddShowOpen] = useState(false);
 
   function handleShowClick(show: ScheduleShow) {
     setEditingShow(show);
@@ -163,6 +168,26 @@ export const SchedulePage = observer(function SchedulePage() {
                 <Star className="h-3.5 w-3.5" />
                 Оценить
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className={cn(
+                  "gap-1.5 h-8",
+                  scheduleStore.metricsStale &&
+                    "border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20",
+                )}
+                disabled={scheduleStore.isRecalculating}
+                onClick={() => scheduleStore.recalculateMetrics()}
+              >
+                {scheduleStore.isRecalculating ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Calculator className="h-3.5 w-3.5" />
+                )}
+                {scheduleStore.metricsStale
+                  ? "Пересчитать прогнозы"
+                  : "Пересчитать"}
+              </Button>
               <div className="flex items-center gap-1.5 text-muted-foreground ml-auto">
                 <Clock className="h-3 w-3" />
                 <span className="text-xs">
@@ -183,16 +208,26 @@ export const SchedulePage = observer(function SchedulePage() {
           {/* Таймлайны залов */}
           <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
             <div className="border-b border-border/50 px-6 py-4">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <CalendarDays className="h-5 w-5 text-emerald-500" />
-                {DAY_NAMES_FULL[scheduleStore.selectedDay % 7]}
-                <Badge
-                  variant="secondary"
-                  className="ml-2 font-normal rounded-lg"
+              <div className="flex items-center justify-between w-full">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5 text-emerald-500" />
+                  {DAY_NAMES_FULL[scheduleStore.selectedDay % 7]}
+                  <Badge
+                    variant="secondary"
+                    className="ml-2 font-normal rounded-lg"
+                  >
+                    {scheduleStore.currentDayShows.length} сеансов
+                  </Badge>
+                </h3>
+                <Button
+                  size="sm"
+                  onClick={() => setAddShowOpen(true)}
+                  className="gap-1.5 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
                 >
-                  {scheduleStore.currentDayShows.length} сеансов
-                </Badge>
-              </h3>
+                  <Plus className="h-4 w-4" />
+                  Добавить сеанс
+                </Button>
+              </div>
             </div>
             <div className="p-6">
               <div className="space-y-8 pt-2">
@@ -245,6 +280,11 @@ export const SchedulePage = observer(function SchedulePage() {
             scheduleName={schedule.name}
             open={ratingOpen}
             onOpenChange={setRatingOpen}
+          />
+          <AddShowDialog
+            open={addShowOpen}
+            onOpenChange={setAddShowOpen}
+            preselectedDay={scheduleStore.selectedDay}
           />
         </>
       )}

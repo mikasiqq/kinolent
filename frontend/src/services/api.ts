@@ -589,3 +589,85 @@ export async function fetchRatings(
   if (!res.ok) throw new Error(`fetchRatings: ${res.status}`);
   return res.json();
 }
+
+// ── Schedule Recalculation API ────────────────────────────────────────────────
+
+export interface RecalcShowInput {
+  id: string;
+  movieId: string;
+  hallId: string;
+  day: number;
+  startMinutes: number;
+  endMinutes: number;
+  adBlockMinutes: number;
+}
+
+export interface RecalcShowResult {
+  id: string;
+  predictedAttendance: number;
+  predictedRevenue: number;
+}
+
+export interface RecalcResponse {
+  shows: RecalcShowResult[];
+  totalAttendance: number;
+  totalRevenue: number;
+}
+
+export async function recalculateSchedule(
+  shows: RecalcShowInput[],
+): Promise<RecalcResponse> {
+  const res = await fetch(`${API_BASE}/api/schedules/recalculate`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify({ shows }),
+  });
+  if (!res.ok) throw new Error(`recalculate: ${res.status}`);
+  return res.json();
+}
+
+// ── TMDB API ──────────────────────────────────────────────────────────────────
+
+export interface TmdbSearchResult {
+  tmdbId: number;
+  title: string;
+  originalTitle: string;
+  releaseDate: string;
+  posterUrl: string | null;
+  overview: string;
+  voteAverage: number;
+  genreIds: number[];
+}
+
+export interface TmdbMovieDetails {
+  tmdbId: number;
+  title: string;
+  originalTitle: string;
+  genre: string;
+  duration: number;
+  ageRating: string;
+  releaseDate: string;
+  posterUrl: string | null;
+  description: string;
+  director: string;
+  popularity: number;
+  voteAverage: number;
+}
+
+export async function tmdbSearch(query: string): Promise<TmdbSearchResult[]> {
+  const res = await fetch(
+    `${API_BASE}/api/tmdb/search?query=${encodeURIComponent(query)}`,
+    { headers: authHeaders() },
+  );
+  if (!res.ok) throw new Error(`tmdb search: ${res.status}`);
+  const data = await res.json();
+  return data.results;
+}
+
+export async function tmdbDetails(tmdbId: number): Promise<TmdbMovieDetails> {
+  const res = await fetch(`${API_BASE}/api/tmdb/${tmdbId}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`tmdb details: ${res.status}`);
+  return res.json();
+}
