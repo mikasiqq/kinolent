@@ -48,6 +48,9 @@ export interface CinemaSchedule {
   name: string;
   createdAt: string;
   days: number; // количество дней
+  startDate?: string; // "YYYY-MM-DD" — дата начала действия
+  endDate?: string; // "YYYY-MM-DD" — дата окончания
+  isArchived?: boolean;
   hallSchedules: HallDaySchedule[];
   totalRevenue: number;
   totalAttendance: number;
@@ -68,6 +71,7 @@ export interface ScheduleMetrics {
 export interface GenerationConfig {
   scheduleName: string;
   days: number;
+  startDate: string; // "YYYY-MM-DD"
   halls: HallConfig[];
   staggerMinutes: number;
   maxColumnsPerIteration: number;

@@ -1,32 +1,32 @@
-import { observer } from "mobx-react";
-import { useNavigate } from "react-router-dom";
-import {
-  Sparkles,
-  Settings2,
-  Play,
-  CheckCircle2,
-  Circle,
-  Loader2,
-  ArrowLeft,
-  CalendarDays,
-  Users,
-  DollarSign,
-  Zap,
-  Timer,
-  XCircle,
-  RotateCcw,
-  Cpu,
-} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { scheduleStore } from "@/stores/scheduleStore";
-import { movieStore } from "@/stores/movieStore";
-import { HALL_TYPE_LABELS } from "@/types/schedule";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { movieStore } from "@/stores/movieStore";
+import { scheduleStore } from "@/stores/scheduleStore";
+import { HALL_TYPE_LABELS } from "@/types/schedule";
+import {
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  Circle,
+  Cpu,
+  DollarSign,
+  Loader2,
+  Play,
+  RotateCcw,
+  Settings2,
+  Sparkles,
+  Timer,
+  Users,
+  XCircle,
+  Zap,
+} from "lucide-react";
+import { observer } from "mobx-react";
+import { useNavigate } from "react-router-dom";
 
 export const GenerateSchedulePage = observer(function GenerateSchedulePage() {
   const navigate = useNavigate();
@@ -138,7 +138,7 @@ const ConfigurationView = observer(function ConfigurationView({
             </div>
           </div>
           <div className="p-6 space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="scheduleName">Название</Label>
                 <Input
@@ -150,6 +150,20 @@ const ConfigurationView = observer(function ConfigurationView({
                     })
                   }
                   placeholder="Расписание на неделю"
+                  className="rounded-lg"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Дата начала</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={config.startDate}
+                  onChange={(e) =>
+                    scheduleStore.updateConfig({
+                      startDate: e.target.value,
+                    })
+                  }
                   className="rounded-lg"
                 />
               </div>
@@ -352,9 +366,14 @@ const ConfigurationView = observer(function ConfigurationView({
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-900/30 text-lg">
                   📅
                 </div>
-                <span className="font-medium">Дней</span>
+                <span className="font-medium">Период</span>
               </div>
-              <Badge className="rounded-lg h-7 px-3">{config.days}</Badge>
+              <div className="text-right">
+                <Badge className="rounded-lg h-7 px-3">{config.days} дн.</Badge>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  с {config.startDate}
+                </p>
+              </div>
             </div>
 
             <div className="border-t border-border/50 pt-4">

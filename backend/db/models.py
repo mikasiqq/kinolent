@@ -62,6 +62,9 @@ class SavedSchedule(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     days: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_date: Mapped[str | None] = mapped_column(String(10))   # "YYYY-MM-DD"
+    end_date: Mapped[str | None] = mapped_column(String(10))     # "YYYY-MM-DD"
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
     data: Mapped[dict] = mapped_column(JSON, nullable=False)
     total_revenue: Mapped[float] = mapped_column(Float, default=0.0)
     total_attendance: Mapped[int] = mapped_column(Integer, default=0)

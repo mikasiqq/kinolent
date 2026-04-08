@@ -463,6 +463,8 @@ export async function saveScheduleToDb(
       name: schedule.name,
       createdAt: schedule.createdAt,
       days: schedule.days,
+      startDate: schedule.startDate ?? null,
+      endDate: schedule.endDate ?? null,
       data: schedule,
       totalRevenue: schedule.totalRevenue,
       totalAttendance: schedule.totalAttendance,
@@ -536,6 +538,9 @@ export async function patchSchedule(
     totalRevenue?: number;
     totalAttendance?: number;
     totalShows?: number;
+    startDate?: string;
+    endDate?: string;
+    isArchived?: boolean;
   },
 ): Promise<unknown> {
   const res = await fetch(`${API_BASE}/api/schedules/${id}`, {

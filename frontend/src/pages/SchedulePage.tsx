@@ -14,6 +14,7 @@ import type { ScheduleShow } from "@/types/schedule";
 import { DAY_NAMES_FULL } from "@/types/schedule";
 import {
   AlertCircle,
+  Archive,
   BarChart3,
   Calculator,
   CalendarDays,
@@ -30,6 +31,14 @@ import {
 import { observer } from "mobx-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+/** Форматирует "2026-04-07" → "7 апр" */
+function formatDateShort(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d
+    .toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
+    .replace(".", "");
+}
 
 export const SchedulePage = observer(function SchedulePage() {
   const navigate = useNavigate();
@@ -82,36 +91,101 @@ export const SchedulePage = observer(function SchedulePage() {
         </div>
       </div>
 
-      {/* Выбор расписания — если несколько */}
-      {scheduleStore.schedules.length > 1 && (
-        <div className="flex flex-wrap gap-2">
-          {scheduleStore.schedules.map((s) => (
+      {/* Вкладки Действующие / Архив + выбор расписания */}
+      {scheduleStore.schedules.length > 0 && (
+        <div className="space-y-3">
+          {/* Вкладки */}
+          <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-1.5">
             <button
-              key={s.id}
-              onClick={() => scheduleStore.selectSchedule(s.id)}
+              onClick={() => scheduleStore.setViewMode("active")}
               className={cn(
-                "flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm transition-all cursor-pointer",
-                s.id === scheduleStore.currentScheduleId
-                  ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 shadow-sm ring-1 ring-emerald-500/20"
-                  : "border-border/50 hover:border-emerald-300 hover:bg-muted/50",
+                "rounded-lg px-4 py-2 text-sm font-medium transition-all cursor-pointer",
+                scheduleStore.viewMode === "active"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-muted-foreground hover:bg-muted/50",
               )}
             >
-              <CalendarDays className="h-4 w-4" />
-              <span className="font-medium">{s.name}</span>
-              <Badge variant="secondary" className="text-[10px]">
-                {s.totalShows} сеансов
-              </Badge>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  scheduleStore.deleteSchedule(s.id);
-                }}
-                className="ml-1 text-muted-foreground hover:text-destructive transition-colors"
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
+              <CalendarDays className="h-3.5 w-3.5 inline mr-1.5" />
+              Действующие
+              {scheduleStore.activeSchedules.length > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 text-[10px] px-1.5 py-0"
+                >
+                  {scheduleStore.activeSchedules.length}
+                </Badge>
+              )}
             </button>
-          ))}
+            <button
+              onClick={() => scheduleStore.setViewMode("archived")}
+              className={cn(
+                "rounded-lg px-4 py-2 text-sm font-medium transition-all cursor-pointer",
+                scheduleStore.viewMode === "archived"
+                  ? "bg-gray-600 text-white shadow-sm"
+                  : "text-muted-foreground hover:bg-muted/50",
+              )}
+            >
+              <Archive className="h-3.5 w-3.5 inline mr-1.5" />
+              Архив
+              {scheduleStore.archivedSchedules.length > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 text-[10px] px-1.5 py-0"
+                >
+                  {scheduleStore.archivedSchedules.length}
+                </Badge>
+              )}
+            </button>
+          </div>
+
+          {/* Список расписаний */}
+          {scheduleStore.visibleSchedules.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              {scheduleStore.visibleSchedules.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => scheduleStore.selectSchedule(s.id)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm transition-all cursor-pointer",
+                    s.id === scheduleStore.currentScheduleId
+                      ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 shadow-sm ring-1 ring-emerald-500/20"
+                      : "border-border/50 hover:border-emerald-300 hover:bg-muted/50",
+                  )}
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  <span className="font-medium">{s.name}</span>
+                  {s.startDate && s.endDate && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatDateShort(s.startDate)} —{" "}
+                      {formatDateShort(s.endDate)}
+                    </span>
+                  )}
+                  <Badge variant="secondary" className="text-[10px]">
+                    {s.totalShows} сеансов
+                  </Badge>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      scheduleStore.toggleArchive(s.id);
+                    }}
+                    title={s.isArchived ? "Разархивировать" : "В архив"}
+                    className="ml-1 text-muted-foreground hover:text-amber-600 transition-colors"
+                  >
+                    <Archive className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      scheduleStore.deleteSchedule(s.id);
+                    }}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -137,9 +211,21 @@ export const SchedulePage = observer(function SchedulePage() {
                 </button>
               </div>
               <div className="hidden sm:block h-5 w-px bg-border" />
-              <Badge variant="outline" className="rounded-lg">
-                📅 {schedule.days} дней
-              </Badge>
+              {schedule.startDate && schedule.endDate ? (
+                <Badge variant="outline" className="rounded-lg">
+                  📅 {formatDateShort(schedule.startDate)} —{" "}
+                  {formatDateShort(schedule.endDate)}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="rounded-lg">
+                  📅 {schedule.days} дней
+                </Badge>
+              )}
+              {schedule.isArchived && (
+                <Badge className="rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-0">
+                  📦 Архив
+                </Badge>
+              )}
               <Badge variant="outline" className="rounded-lg">
                 🎬 {schedule.totalShows} сеансов
               </Badge>
@@ -211,7 +297,29 @@ export const SchedulePage = observer(function SchedulePage() {
               <div className="flex items-center justify-between w-full">
                 <h3 className="text-lg font-bold flex items-center gap-2">
                   <CalendarDays className="h-5 w-5 text-emerald-500" />
-                  {DAY_NAMES_FULL[scheduleStore.selectedDay % 7]}
+                  {(() => {
+                    const realDate = scheduleStore.getDateForDay(
+                      scheduleStore.selectedDay,
+                    );
+                    if (realDate) {
+                      const weekdayIdx = (realDate.getDay() + 6) % 7;
+                      return (
+                        <>
+                          {DAY_NAMES_FULL[weekdayIdx]},{" "}
+                          {realDate.toLocaleDateString("ru-RU", {
+                            day: "numeric",
+                            month: "long",
+                          })}
+                        </>
+                      );
+                    }
+                    return DAY_NAMES_FULL[scheduleStore.selectedDay % 7];
+                  })()}
+                  {scheduleStore.isDayPast(scheduleStore.selectedDay) && (
+                    <Badge className="bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-0 text-[10px]">
+                      Прошёл
+                    </Badge>
+                  )}
                   <Badge
                     variant="secondary"
                     className="ml-2 font-normal rounded-lg"

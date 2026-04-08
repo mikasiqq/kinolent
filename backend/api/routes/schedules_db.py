@@ -6,15 +6,17 @@ GET    /api/schedules/{id}         — конкретное расписание
 POST   /api/schedules              — сохранить расписание
 PATCH  /api/schedules/{id}         — обновить (имя, данные)
 DELETE /api/schedules/{id}         — удалить расписание
+POST   /api/schedules/{id}/archive — архивировать / разархивировать
 POST   /api/schedules/{id}/rate    — оценить расписание
 GET    /api/schedules/{id}/ratings — рейтинги расписания
 POST   /api/schedules/recalculate  — пересчитать прогнозы посещаемости/выручки
 """
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,6 +37,8 @@ class ScheduleSaveBody(BaseModel):
     name: str
     createdAt: str
     days: int
+    startDate: str | None = None   # "YYYY-MM-DD"
+    endDate: str | None = None     # "YYYY-MM-DD"
     data: dict[str, Any]
     totalRevenue: float
     totalAttendance: int
@@ -47,6 +51,9 @@ class SchedulePatchBody(BaseModel):
     totalRevenue: float | None = None
     totalAttendance: int | None = None
     totalShows: int | None = None
+    startDate: str | None = None
+    endDate: str | None = None
+    isArchived: bool | None = None
 
 
 class RatingBody(BaseModel):
@@ -71,11 +78,42 @@ class RecalcRequest(BaseModel):
 # ── Эндпоинты ────────────────────────────────────────────────────────────────
 
 @router.get("", dependencies=[Depends(require_any)])
-async def list_schedules(db: AsyncSession = Depends(get_db)):
-    """Возвращает все расписания с полными данными (для восстановления стора)."""
-    result = await db.execute(
-        select(SavedSchedule).order_by(SavedSchedule.created_at.desc())
+async def list_schedules(
+    status: str = Query("all", pattern="^(active|archived|all)$"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Возвращает расписания с полными данными.
+
+    ?status=active   — только действующие
+    ?status=archived — только архивные
+    ?status=all      — все (по умолчанию)
+
+    Автоматически архивирует расписания, у которых end_date < сегодня.
+    """
+    today_str = date.today().isoformat()
+
+    # Авто-архивация: end_date < сегодня и ещё не в архиве
+    auto_archive = await db.execute(
+        select(SavedSchedule).where(
+            SavedSchedule.is_archived == False,  # noqa: E712
+            SavedSchedule.end_date.isnot(None),
+            SavedSchedule.end_date < today_str,
+        )
     )
+    for s in auto_archive.scalars().all():
+        s.is_archived = True
+        if s.data and isinstance(s.data, dict):
+            s.data = {**s.data, "isArchived": True}
+    await db.commit()
+
+    # Фильтрация
+    q = select(SavedSchedule).order_by(SavedSchedule.created_at.desc())
+    if status == "active":
+        q = q.where(SavedSchedule.is_archived == False)  # noqa: E712
+    elif status == "archived":
+        q = q.where(SavedSchedule.is_archived == True)  # noqa: E712
+
+    result = await db.execute(q)
     schedules = result.scalars().all()
     return [s.data for s in schedules]
 
@@ -95,6 +133,15 @@ async def get_schedule(schedule_id: str, db: AsyncSession = Depends(get_db)):
 async def save_schedule(
     body: ScheduleSaveBody, db: AsyncSession = Depends(get_db)
 ):
+    # Вычислить end_date если не указан
+    end_date = body.endDate
+    if not end_date and body.startDate:
+        try:
+            sd = date.fromisoformat(body.startDate)
+            end_date = (sd + timedelta(days=max(body.days - 1, 0))).isoformat()
+        except ValueError:
+            end_date = None
+
     # Если уже существует — обновляем
     result = await db.execute(
         select(SavedSchedule).where(SavedSchedule.id == body.id)
@@ -106,11 +153,17 @@ async def save_schedule(
         existing.total_revenue = body.totalRevenue
         existing.total_attendance = body.totalAttendance
         existing.total_shows = body.totalShows
+        if body.startDate:
+            existing.start_date = body.startDate
+        if end_date:
+            existing.end_date = end_date
     else:
         s = SavedSchedule(
             id=body.id,
             name=body.name,
             days=body.days,
+            start_date=body.startDate,
+            end_date=end_date,
             data=body.data,
             total_revenue=body.totalRevenue,
             total_attendance=body.totalAttendance,
@@ -132,6 +185,22 @@ async def delete_schedule(schedule_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "Schedule not found")
     await db.delete(s)
     await db.commit()
+
+
+@router.post("/{schedule_id}/archive", dependencies=[Depends(require_manager)])
+async def toggle_archive(schedule_id: str, db: AsyncSession = Depends(get_db)):
+    """Переключить статус архива расписания."""
+    result = await db.execute(
+        select(SavedSchedule).where(SavedSchedule.id == schedule_id)
+    )
+    s = result.scalar_one_or_none()
+    if not s:
+        raise HTTPException(404, "Schedule not found")
+    s.is_archived = not s.is_archived
+    if s.data and isinstance(s.data, dict):
+        s.data = {**s.data, "isArchived": s.is_archived}
+    await db.commit()
+    return {"id": schedule_id, "isArchived": s.is_archived}
 
 
 # ── POST /recalculate — пересчёт прогнозов ────────────────────────────────────
@@ -251,6 +320,18 @@ async def patch_schedule(
         s.total_attendance = body.totalAttendance
     if body.totalShows is not None:
         s.total_shows = body.totalShows
+    if body.startDate is not None:
+        s.start_date = body.startDate
+        if s.data and isinstance(s.data, dict):
+            s.data = {**s.data, "startDate": body.startDate}
+    if body.endDate is not None:
+        s.end_date = body.endDate
+        if s.data and isinstance(s.data, dict):
+            s.data = {**s.data, "endDate": body.endDate}
+    if body.isArchived is not None:
+        s.is_archived = body.isArchived
+        if s.data and isinstance(s.data, dict):
+            s.data = {**s.data, "isArchived": body.isArchived}
 
     await db.commit()
     await db.refresh(s)

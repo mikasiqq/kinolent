@@ -199,11 +199,21 @@ export const AddShowDialog = observer(function AddShowDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: days }, (_, i) => (
-                  <SelectItem key={i} value={String(i)}>
-                    День {i + 1} — {DAY_NAMES_FULL[i % 7]}
-                  </SelectItem>
-                ))}
+                {Array.from({ length: days }, (_, i) => {
+                  const realDate = scheduleStore.getDateForDay(i);
+                  const weekdayIdx = realDate
+                    ? (realDate.getDay() + 6) % 7
+                    : i % 7;
+                  const dateLabel = realDate
+                    ? ` (${realDate.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }).replace(".", "")})`
+                    : "";
+                  return (
+                    <SelectItem key={i} value={String(i)}>
+                      {DAY_NAMES_FULL[weekdayIdx]}
+                      {dateLabel}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -267,7 +277,16 @@ export const AddShowDialog = observer(function AddShowDialog({
                 <span>{selectedMovie.genre}</span>
                 {selectedHall && <span>{selectedHall.name}</span>}
                 <span>
-                  День {selectedDay + 1} — {DAY_NAMES_FULL[selectedDay % 7]}
+                  {(() => {
+                    const realDate = scheduleStore.getDateForDay(selectedDay);
+                    const weekdayIdx = realDate
+                      ? (realDate.getDay() + 6) % 7
+                      : selectedDay % 7;
+                    const dateLabel = realDate
+                      ? `, ${realDate.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }).replace(".", "")}`
+                      : "";
+                    return `${DAY_NAMES_FULL[weekdayIdx]}${dateLabel}`;
+                  })()}
                 </span>
               </div>
             </div>

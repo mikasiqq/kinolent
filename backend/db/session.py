@@ -28,9 +28,24 @@ async def get_db():
 
 
 async def init_db() -> None:
-    """Создаёт таблицы (если не существуют)."""
+    """Создаёт таблицы (если не существуют) и выполняет миграции."""
     # импортируем модели, чтобы Base знала о них
     from . import models  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Миграция: добавить новые колонки в saved_schedules (если отсутствуют)
+    async with engine.begin() as conn:
+        from sqlalchemy import text
+        for col, col_type, default in [
+            ("start_date", "VARCHAR(10)", "NULL"),
+            ("end_date", "VARCHAR(10)", "NULL"),
+            ("is_archived", "BOOLEAN", "FALSE"),
+        ]:
+            try:
+                await conn.execute(text(
+                    f"ALTER TABLE saved_schedules ADD COLUMN {col} {col_type} DEFAULT {default}"
+                ))
+            except Exception:
+                pass  # Колонка уже существует

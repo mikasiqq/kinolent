@@ -27,6 +27,7 @@ import { movieStore } from "./movieStore";
 const DEFAULT_CONFIG: Omit<GenerationConfig, "halls"> = {
   scheduleName: "Расписание на неделю",
   days: 7,
+  startDate: new Date().toISOString().slice(0, 10),
   staggerMinutes: 5,
   maxColumnsPerIteration: 100,
   lpTimeLimitSeconds: 30,
@@ -140,6 +141,9 @@ class ScheduleStore {
   currentScheduleId: string | null = null;
   selectedDay = 0;
 
+  /** Режим просмотра: действующие или архив */
+  viewMode: "active" | "archived" = "active";
+
   /** Конфигурация генерации */
   config: GenerationConfig = {
     ...DEFAULT_CONFIG,
@@ -184,6 +188,70 @@ class ScheduleStore {
       }
     }
     return halls;
+  }
+
+  /** Действующие расписания */
+  get activeSchedules(): CinemaSchedule[] {
+    return this.schedules.filter((s) => !s.isArchived);
+  }
+
+  /** Архивные расписания */
+  get archivedSchedules(): CinemaSchedule[] {
+    return this.schedules.filter((s) => s.isArchived);
+  }
+
+  /** Расписания для текущего режима просмотра */
+  get visibleSchedules(): CinemaSchedule[] {
+    return this.viewMode === "active"
+      ? this.activeSchedules
+      : this.archivedSchedules;
+  }
+
+  /** Проверяет, прошёл ли день day в текущем расписании */
+  isDayPast(day: number): boolean {
+    const schedule = this.currentSchedule;
+    if (!schedule?.startDate) return false;
+    const d = new Date(schedule.startDate);
+    d.setDate(d.getDate() + day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return d < today;
+  }
+
+  /** Получить реальную дату для дня day */
+  getDateForDay(day: number): Date | null {
+    const schedule = this.currentSchedule;
+    if (!schedule?.startDate) return null;
+    const d = new Date(schedule.startDate);
+    d.setDate(d.getDate() + day);
+    return d;
+  }
+
+  /** Переключить режим просмотра */
+  setViewMode(mode: "active" | "archived") {
+    this.viewMode = mode;
+    // При переключении выбираем первое расписание из нового списка
+    const list = this.visibleSchedules;
+    if (list.length > 0 && !list.find((s) => s.id === this.currentScheduleId)) {
+      this.currentScheduleId = list[0].id;
+      this.selectedDay = 0;
+    }
+  }
+
+  /** Архивировать / разархивировать расписание */
+  async toggleArchive(id: string) {
+    const schedule = this.schedules.find((s) => s.id === id);
+    if (!schedule) return;
+    const newVal = !schedule.isArchived;
+    schedule.isArchived = newVal;
+    // Переключим на другое расписание если текущее ушло из просмотра
+    if (this.currentScheduleId === id) {
+      const list = this.visibleSchedules;
+      this.currentScheduleId = list.length > 0 ? list[0].id : null;
+    }
+    patchSchedule(id, { isArchived: newVal }).catch((e) =>
+      console.warn("toggleArchive failed:", e),
+    );
   }
 
   /** Статистика по текущему дню */
@@ -320,6 +388,14 @@ class ScheduleStore {
           },
           onDone: (schedule) => {
             runInAction(() => {
+              // Привязать реальные даты к расписанию
+              schedule.startDate = this.config.startDate;
+              schedule.endDate = this._computeEndDate(
+                this.config.startDate,
+                schedule.days,
+              );
+              schedule.isArchived = false;
+
               this.schedules.unshift(schedule);
               this.currentScheduleId = schedule.id;
               this.selectedDay = 0;
@@ -378,6 +454,13 @@ class ScheduleStore {
       await this.simulateStep(4, 5);
       const schedule = generateDemoSchedule(this.config);
       runInAction(() => {
+        schedule.startDate = this.config.startDate;
+        schedule.endDate = this._computeEndDate(
+          this.config.startDate,
+          schedule.days,
+        );
+        schedule.isArchived = false;
+
         this.schedules.unshift(schedule);
         this.currentScheduleId = schedule.id;
         this.selectedDay = 0;
@@ -724,6 +807,13 @@ class ScheduleStore {
     const h = Math.floor(minutes / 60) % 24;
     const m = minutes % 60;
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+  }
+
+  /** Вычислить endDate = startDate + (days - 1) */
+  private _computeEndDate(startDate: string, days: number): string {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + days - 1);
+    return d.toISOString().slice(0, 10);
   }
 
   /** Persist current schedule to DB */
