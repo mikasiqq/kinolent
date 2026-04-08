@@ -626,21 +626,21 @@ export async function recalculateSchedule(
   return res.json();
 }
 
-// ── TMDB API ──────────────────────────────────────────────────────────────────
+// ── Kinopoisk API ─────────────────────────────────────────────────────────────
 
-export interface TmdbSearchResult {
-  tmdbId: number;
+export interface KpSearchResult {
+  kpId: number;
   title: string;
   originalTitle: string;
-  releaseDate: string;
+  year: string;
   posterUrl: string | null;
-  overview: string;
-  voteAverage: number;
-  genreIds: number[];
+  description: string;
+  rating: number;
+  genres: string[];
 }
 
-export interface TmdbMovieDetails {
-  tmdbId: number;
+export interface KpMovieDetails {
+  kpId: number;
   title: string;
   originalTitle: string;
   genre: string;
@@ -651,23 +651,24 @@ export interface TmdbMovieDetails {
   description: string;
   director: string;
   popularity: number;
-  voteAverage: number;
+  ratingKp: number;
+  ratingImdb: number;
 }
 
-export async function tmdbSearch(query: string): Promise<TmdbSearchResult[]> {
+export async function kpSearch(query: string): Promise<KpSearchResult[]> {
   const res = await fetch(
-    `${API_BASE}/api/tmdb/search?query=${encodeURIComponent(query)}`,
+    `${API_BASE}/api/kp/search?query=${encodeURIComponent(query)}`,
     { headers: authHeaders() },
   );
-  if (!res.ok) throw new Error(`tmdb search: ${res.status}`);
+  if (!res.ok) throw new Error(`kp search: ${res.status}`);
   const data = await res.json();
   return data.results;
 }
 
-export async function tmdbDetails(tmdbId: number): Promise<TmdbMovieDetails> {
-  const res = await fetch(`${API_BASE}/api/tmdb/${tmdbId}`, {
+export async function kpDetails(kpId: number): Promise<KpMovieDetails> {
+  const res = await fetch(`${API_BASE}/api/kp/${kpId}`, {
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error(`tmdb details: ${res.status}`);
+  if (!res.ok) throw new Error(`kp details: ${res.status}`);
   return res.json();
 }

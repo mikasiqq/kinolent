@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db.session import init_db
 from db.seed import seed_if_empty
-from .routes import movies_router, halls_router, schedules_db_router, auth_router, users_router, tmdb_router
+from .routes import movies_router, halls_router, schedules_db_router, auth_router, users_router, kp_router
 
 from scheduler.engine import CinemaScheduler
 from scheduler.models import SolverMetrics, WeeklySchedule
@@ -88,7 +88,7 @@ app.include_router(users_router)
 app.include_router(movies_router)
 app.include_router(halls_router)
 app.include_router(schedules_db_router)
-app.include_router(tmdb_router)
+app.include_router(kp_router)
 
 
 # ── Health-check ─────────────────────────────────────────────────────────────

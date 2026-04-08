@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { TmdbSearchResult } from "@/services/api";
-import { tmdbDetails, tmdbSearch } from "@/services/api";
+import type { KpSearchResult } from "@/services/api";
+import { kpDetails, kpSearch } from "@/services/api";
 import { movieStore } from "@/stores/movieStore";
 import type { AgeRating, Genre, Movie, MovieFormData } from "@/types/movie";
 import { AGE_RATING_OPTIONS, GENRE_LABELS } from "@/types/movie";
@@ -296,12 +296,12 @@ export function MovieDialog({ open, onOpenChange, movie }: MovieDialogProps) {
   const isEditing = !!movie;
   const [guideOpen, setGuideOpen] = useState(false);
 
-  // TMDB search state
-  const [tmdbQuery, setTmdbQuery] = useState("");
-  const [tmdbResults, setTmdbResults] = useState<TmdbSearchResult[]>([]);
-  const [tmdbLoading, setTmdbLoading] = useState(false);
-  const [tmdbFilling, setTmdbFilling] = useState(false);
-  const [tmdbError, setTmdbError] = useState<string | null>(null);
+  // Kinopoisk search state
+  const [kpQuery, setKpQuery] = useState("");
+  const [kpResults, setKpResults] = useState<KpSearchResult[]>([]);
+  const [kpLoading, setKpLoading] = useState(false);
+  const [kpFilling, setKpFilling] = useState(false);
+  const [kpError, setKpError] = useState<string | null>(null);
 
   const [form, setForm] = useState<MovieFormData>(() => {
     if (movie) {
@@ -343,29 +343,38 @@ export function MovieDialog({ open, onOpenChange, movie }: MovieDialogProps) {
     onOpenChange(false);
   };
 
-  // TMDB search handler
-  async function handleTmdbSearch() {
-    const q = tmdbQuery.trim() || form.title.trim();
+  // Kinopoisk search handler
+  async function handleKpSearch() {
+    const q = kpQuery.trim() || form.title.trim();
     if (!q) return;
-    setTmdbLoading(true);
-    setTmdbError(null);
-    setTmdbResults([]);
+    setKpLoading(true);
+    setKpError(null);
+    setKpResults([]);
     try {
-      const results = await tmdbSearch(q);
-      setTmdbResults(results);
-      if (results.length === 0) setTmdbError("Ничего не найдено");
-    } catch {
-      setTmdbError("Ошибка поиска. Проверьте TMDB_API_KEY.");
+      const results = await kpSearch(q);
+      setKpResults(results);
+      if (results.length === 0) setKpError("Ничего не найдено");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("503") || msg.includes("502")) {
+        setKpError(
+          "КиноПоиск API недоступен с этой сети. Настройте HTTPS_PROXY в .env бэкенда.",
+        );
+      } else if (msg.includes("501")) {
+        setKpError("KP_API_KEY не задан в .env бэкенда.");
+      } else {
+        setKpError("Ошибка поиска: " + msg);
+      }
     } finally {
-      setTmdbLoading(false);
+      setKpLoading(false);
     }
   }
 
-  // Fill form from TMDB details
-  async function handleTmdbSelect(tmdbId: number) {
-    setTmdbFilling(true);
+  // Fill form from Kinopoisk details
+  async function handleKpSelect(kpId: number) {
+    setKpFilling(true);
     try {
-      const d = await tmdbDetails(tmdbId);
+      const d = await kpDetails(kpId);
       setForm((prev) => ({
         ...prev,
         title: d.title || prev.title,
@@ -379,12 +388,12 @@ export function MovieDialog({ open, onOpenChange, movie }: MovieDialogProps) {
         director: d.director || prev.director,
         popularity: d.popularity || prev.popularity,
       }));
-      setTmdbResults([]);
-      setTmdbQuery("");
+      setKpResults([]);
+      setKpQuery("");
     } catch {
-      setTmdbError("Не удалось загрузить детали фильма");
+      setKpError("Не удалось загрузить детали фильма");
     } finally {
-      setTmdbFilling(false);
+      setKpFilling(false);
     }
   }
 
@@ -404,22 +413,22 @@ export function MovieDialog({ open, onOpenChange, movie }: MovieDialogProps) {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Поиск в TMDB */}
+            {/* Поиск в КиноПоиске */}
             {!isEditing && (
               <div className="rounded-xl border border-blue-200 dark:border-blue-800/40 bg-blue-50/50 dark:bg-blue-900/10 p-4 space-y-3">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Globe className="h-4 w-4 text-blue-500" />
-                  Быстрое заполнение из TMDB
+                  Быстрое заполнение из КиноПоиска
                 </div>
                 <div className="flex gap-2">
                   <Input
                     placeholder="Название фильма на русском или английском..."
-                    value={tmdbQuery}
-                    onChange={(e) => setTmdbQuery(e.target.value)}
+                    value={kpQuery}
+                    onChange={(e) => setKpQuery(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        handleTmdbSearch();
+                        handleKpSearch();
                       }
                     }}
                     className="flex-1"
@@ -428,11 +437,11 @@ export function MovieDialog({ open, onOpenChange, movie }: MovieDialogProps) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={tmdbLoading}
-                    onClick={handleTmdbSearch}
+                    disabled={kpLoading}
+                    onClick={handleKpSearch}
                     className="gap-1.5 shrink-0"
                   >
-                    {tmdbLoading ? (
+                    {kpLoading ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <Search className="h-3.5 w-3.5" />
@@ -442,19 +451,17 @@ export function MovieDialog({ open, onOpenChange, movie }: MovieDialogProps) {
                 </div>
 
                 {/* Ошибка */}
-                {tmdbError && (
-                  <p className="text-xs text-red-500">{tmdbError}</p>
-                )}
+                {kpError && <p className="text-xs text-red-500">{kpError}</p>}
 
                 {/* Результаты */}
-                {tmdbResults.length > 0 && (
+                {kpResults.length > 0 && (
                   <div className="max-h-52 overflow-y-auto rounded-lg border border-border/50 bg-background divide-y divide-border/30">
-                    {tmdbResults.map((r) => (
+                    {kpResults.map((r) => (
                       <button
-                        key={r.tmdbId}
+                        key={r.kpId}
                         type="button"
-                        disabled={tmdbFilling}
-                        onClick={() => handleTmdbSelect(r.tmdbId)}
+                        disabled={kpFilling}
+                        onClick={() => handleKpSelect(r.kpId)}
                         className="w-full flex items-start gap-3 p-2.5 text-left hover:bg-muted/50 transition-colors disabled:opacity-50"
                       >
                         {r.posterUrl ? (
@@ -478,20 +485,20 @@ export function MovieDialog({ open, onOpenChange, movie }: MovieDialogProps) {
                             </p>
                           )}
                           <div className="flex items-center gap-2 mt-0.5">
-                            {r.releaseDate && (
+                            {r.year && (
                               <span className="text-[11px] text-muted-foreground">
-                                {r.releaseDate.slice(0, 4)}
+                                {r.year}
                               </span>
                             )}
-                            {r.voteAverage > 0 && (
+                            {r.rating > 0 && (
                               <span className="text-[11px] text-amber-500 flex items-center gap-0.5">
                                 <Star className="h-2.5 w-2.5 fill-amber-400" />
-                                {r.voteAverage.toFixed(1)}
+                                {r.rating.toFixed(1)}
                               </span>
                             )}
                           </div>
                         </div>
-                        {tmdbFilling && (
+                        {kpFilling && (
                           <Loader2 className="h-4 w-4 animate-spin text-blue-500 shrink-0 mt-1" />
                         )}
                       </button>
