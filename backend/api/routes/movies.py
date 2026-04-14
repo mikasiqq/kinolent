@@ -21,6 +21,18 @@ from db.session import get_db
 router = APIRouter(prefix="/api/movies", tags=["movies"])
 
 
+def _assert_org_write(entity_org_id: str | None, user: User) -> None:
+    """403 если пользователь не может редактировать эту запись.
+
+    Супер-админ (роль admin, org_id IS NULL) — редактирует всё.
+    Остальные — только свою орг. (нельзя трогать шардные записи другой орг.).
+    """
+    if user.role == "admin" and not user.org_id:
+        return
+    if entity_org_id != user.org_id:
+        raise HTTPException(403, "Нет прав на редактирование этой записи")
+
+
 # ── Схемы ────────────────────────────────────────────────────────────────────
 
 class MovieBody(BaseModel):
@@ -119,14 +131,18 @@ async def create_movie(
     return _to_out(movie)
 
 
-@router.put("/{movie_id}", response_model=MovieOut, dependencies=[Depends(require_manager)])
+@router.put("/{movie_id}", response_model=MovieOut)
 async def update_movie(
-    movie_id: str, body: MovieBody, db: AsyncSession = Depends(get_db)
+    movie_id: str,
+    body: MovieBody,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_manager),
 ):
     result = await db.execute(select(Movie).where(Movie.id == movie_id))
     movie = result.scalar_one_or_none()
     if not movie:
         raise HTTPException(404, "Movie not found")
+    _assert_org_write(movie.org_id, user)
 
     movie.title = body.title
     movie.original_title = body.originalTitle
@@ -147,23 +163,33 @@ async def update_movie(
     return _to_out(movie)
 
 
-@router.patch("/{movie_id}/toggle", response_model=MovieOut, dependencies=[Depends(require_manager)])
-async def toggle_movie(movie_id: str, db: AsyncSession = Depends(get_db)):
+@router.patch("/{movie_id}/toggle", response_model=MovieOut)
+async def toggle_movie(
+    movie_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_manager),
+):
     result = await db.execute(select(Movie).where(Movie.id == movie_id))
     movie = result.scalar_one_or_none()
     if not movie:
         raise HTTPException(404, "Movie not found")
+    _assert_org_write(movie.org_id, user)
     movie.is_active = not movie.is_active
     await db.commit()
     await db.refresh(movie)
     return _to_out(movie)
 
 
-@router.delete("/{movie_id}", status_code=204, dependencies=[Depends(require_manager)])
-async def delete_movie(movie_id: str, db: AsyncSession = Depends(get_db)):
+@router.delete("/{movie_id}", status_code=204)
+async def delete_movie(
+    movie_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_manager),
+):
     result = await db.execute(select(Movie).where(Movie.id == movie_id))
     movie = result.scalar_one_or_none()
     if not movie:
         raise HTTPException(404, "Movie not found")
+    _assert_org_write(movie.org_id, user)
     await db.delete(movie)
     await db.commit()

@@ -30,6 +30,23 @@ from scheduler.models import Hall as SchedHall, Movie as SchedMovie, SchedulerCo
 router = APIRouter(prefix="/api/schedules", tags=["schedules"])
 
 
+# ── Хелпер проверки принадлежности расписания ─────────────────────────────────
+
+def _assert_org_access(s: SavedSchedule, user: User) -> None:
+    """403 если пользователь не имеет права на это расписание.
+
+    Логика:
+    - admin без org_id → видит всё (суперпользователь).
+    - admin с org_id   → видит только свою орг.
+    - Остальные        → только совпадение org_id.
+    Orphaned-расписания (org_id IS NULL) видит только admin без org_id.
+    """
+    if user.role == "admin" and not user.org_id:
+        return  # суперадмин видит всё
+    if s.org_id != user.org_id:
+        raise HTTPException(403, "Нет доступа к этому расписанию")
+
+
 # ── Схемы ────────────────────────────────────────────────────────────────────
 
 class ScheduleSaveBody(BaseModel):
@@ -122,14 +139,19 @@ async def list_schedules(
     return [s.data for s in schedules]
 
 
-@router.get("/{schedule_id}", dependencies=[Depends(require_any)])
-async def get_schedule(schedule_id: str, db: AsyncSession = Depends(get_db)):
+@router.get("/{schedule_id}")
+async def get_schedule(
+    schedule_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_any),
+):
     result = await db.execute(
         select(SavedSchedule).where(SavedSchedule.id == schedule_id)
     )
     s = result.scalar_one_or_none()
     if not s:
         raise HTTPException(404, "Schedule not found")
+    _assert_org_access(s, user)
     return s.data
 
 
@@ -155,6 +177,13 @@ async def save_schedule(
     existing = result.scalar_one_or_none()
 
     if existing:
+        # Проверка доступа: нельзя обновлять чужое расписание
+        # Если расписание «бесхозное» (org_id=NULL) — присваиваем орг. текущего пользователя
+        if existing.org_id is None and user.org_id:
+            existing.org_id = user.org_id
+        else:
+            _assert_org_access(existing, user)
+
         existing.data = body.data
         existing.total_revenue = body.totalRevenue
         existing.total_attendance = body.totalAttendance
@@ -182,20 +211,29 @@ async def save_schedule(
     return {"id": body.id}
 
 
-@router.delete("/{schedule_id}", status_code=204, dependencies=[Depends(require_manager)])
-async def delete_schedule(schedule_id: str, db: AsyncSession = Depends(get_db)):
+@router.delete("/{schedule_id}", status_code=204)
+async def delete_schedule(
+    schedule_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_manager),
+):
     result = await db.execute(
         select(SavedSchedule).where(SavedSchedule.id == schedule_id)
     )
     s = result.scalar_one_or_none()
     if not s:
         raise HTTPException(404, "Schedule not found")
+    _assert_org_access(s, user)
     await db.delete(s)
     await db.commit()
 
 
-@router.post("/{schedule_id}/archive", dependencies=[Depends(require_manager)])
-async def toggle_archive(schedule_id: str, db: AsyncSession = Depends(get_db)):
+@router.post("/{schedule_id}/archive")
+async def toggle_archive(
+    schedule_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_manager),
+):
     """Переключить статус архива расписания."""
     result = await db.execute(
         select(SavedSchedule).where(SavedSchedule.id == schedule_id)
@@ -203,6 +241,7 @@ async def toggle_archive(schedule_id: str, db: AsyncSession = Depends(get_db)):
     s = result.scalar_one_or_none()
     if not s:
         raise HTTPException(404, "Schedule not found")
+    _assert_org_access(s, user)
     s.is_archived = not s.is_archived
     if s.data and isinstance(s.data, dict):
         s.data = {**s.data, "isArchived": s.is_archived}
@@ -303,9 +342,12 @@ async def recalculate_predictions(
 
 # ── PATCH — обновить расписание ────────────────────────────────────────────────
 
-@router.patch("/{schedule_id}", dependencies=[Depends(require_manager)])
+@router.patch("/{schedule_id}")
 async def patch_schedule(
-    schedule_id: str, body: SchedulePatchBody, db: AsyncSession = Depends(get_db)
+    schedule_id: str,
+    body: SchedulePatchBody,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_manager),
 ):
     result = await db.execute(
         select(SavedSchedule).where(SavedSchedule.id == schedule_id)
@@ -313,6 +355,7 @@ async def patch_schedule(
     s = result.scalar_one_or_none()
     if not s:
         raise HTTPException(404, "Schedule not found")
+    _assert_org_access(s, user)
 
     if body.name is not None:
         s.name = body.name

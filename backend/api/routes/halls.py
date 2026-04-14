@@ -20,6 +20,14 @@ from db.session import get_db
 router = APIRouter(prefix="/api/halls", tags=["halls"])
 
 
+def _assert_org_write(entity_org_id: str | None, user: User) -> None:
+    """403 если пользователь не может редактировать этот зал."""
+    if user.role == "admin" and not user.org_id:
+        return
+    if entity_org_id != user.org_id:
+        raise HTTPException(403, "Нет прав на редактирование этого зала")
+
+
 # ── Схемы ────────────────────────────────────────────────────────────────────
 
 class HallBody(BaseModel):
@@ -92,14 +100,18 @@ async def create_hall(
     return _to_out(hall)
 
 
-@router.put("/{hall_id}", response_model=HallOut, dependencies=[Depends(require_manager)])
+@router.put("/{hall_id}", response_model=HallOut)
 async def update_hall(
-    hall_id: str, body: HallBody, db: AsyncSession = Depends(get_db)
+    hall_id: str,
+    body: HallBody,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_manager),
 ):
     result = await db.execute(select(Hall).where(Hall.id == hall_id))
     hall = result.scalar_one_or_none()
     if not hall:
         raise HTTPException(404, "Hall not found")
+    _assert_org_write(hall.org_id, user)
 
     hall.name = body.name
     hall.capacity = body.capacity
@@ -114,11 +126,16 @@ async def update_hall(
     return _to_out(hall)
 
 
-@router.delete("/{hall_id}", status_code=204, dependencies=[Depends(require_manager)])
-async def delete_hall(hall_id: str, db: AsyncSession = Depends(get_db)):
+@router.delete("/{hall_id}", status_code=204)
+async def delete_hall(
+    hall_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_manager),
+):
     result = await db.execute(select(Hall).where(Hall.id == hall_id))
     hall = result.scalar_one_or_none()
     if not hall:
         raise HTTPException(404, "Hall not found")
+    _assert_org_write(hall.org_id, user)
     await db.delete(hall)
     await db.commit()
