@@ -4,6 +4,7 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { GenerateSchedulePage } from "@/pages/GenerateSchedulePage";
 import { LoginPage } from "@/pages/LoginPage";
 import { MoviesPage } from "@/pages/MoviesPage";
+import { OrganizationsPage } from "@/pages/OrganizationsPage";
 import { SchedulePage } from "@/pages/SchedulePage";
 import { UsersPage } from "@/pages/UsersPage";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
@@ -21,6 +22,7 @@ function App() {
             <Route path="/generate" element={<GenerateSchedulePage />} />
             <Route element={<ProtectedRoute requiredRole="admin" />}>
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/organizations" element={<OrganizationsPage />} />
             </Route>
           </Route>
         </Route>

@@ -1,22 +1,4 @@
-import { useState, useCallback } from "react";
-import { observer } from "mobx-react";
-import {
-  Clock,
-  Star,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  Eye,
-  EyeOff,
-  Play,
-} from "lucide-react";
-import type { Movie } from "@/types/movie";
-import {
-  GENRE_LABELS,
-  GENRE_COLORS,
-  GENRE_EMOJI,
-  GENRE_GRADIENT,
-} from "@/types/movie";
+import { MoviePoster } from "@/components/movies/MoviePoster";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,8 +8,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { movieStore } from "@/stores/movieStore";
 import { cn } from "@/lib/utils";
+import { movieStore } from "@/stores/movieStore";
+import type { Movie } from "@/types/movie";
+import { GENRE_COLORS, GENRE_EMOJI, GENRE_LABELS } from "@/types/movie";
+import {
+  Clock,
+  Eye,
+  EyeOff,
+  MoreVertical,
+  Pencil,
+  Play,
+  Star,
+  Trash2,
+} from "lucide-react";
+import { observer } from "mobx-react";
 
 interface MovieCardProps {
   movie: Movie;
@@ -38,12 +33,6 @@ export const MovieCard = observer(function MovieCard({
   movie,
   onEdit,
 }: MovieCardProps) {
-  const [imgError, setImgError] = useState(false);
-  const [imgLoaded, setImgLoaded] = useState(false);
-
-  const handleImgError = useCallback(() => setImgError(true), []);
-  const handleImgLoad = useCallback(() => setImgLoaded(true), []);
-
   const hours = Math.floor(movie.duration / 60);
   const mins = movie.duration % 60;
   const durationStr = hours > 0 ? `${hours}ч ${mins}м` : `${mins}м`;
@@ -59,40 +48,17 @@ export const MovieCard = observer(function MovieCard({
     >
       {/* Постер */}
       <div className="relative aspect-2/3 w-full overflow-hidden bg-muted">
-        {/* Скелетон загрузки */}
-        {!imgLoaded && !imgError && movie.posterUrl && (
-          <div className="absolute inset-0 bg-muted animate-pulse" />
-        )}
-
-        {movie.posterUrl && !imgError ? (
-          <img
-            src={movie.posterUrl}
-            alt={movie.title}
-            className={cn(
-              "h-full w-full object-cover transition-all duration-700",
-              "group-hover:scale-110",
-              imgLoaded ? "opacity-100" : "opacity-0",
-            )}
-            loading="lazy"
-            onError={handleImgError}
-            onLoad={handleImgLoad}
-          />
-        ) : (
-          <div
-            className={cn(
-              "flex h-full w-full flex-col items-center justify-center gap-3",
-              "bg-linear-to-br",
-              GENRE_GRADIENT[movie.genre],
-            )}
-          >
-            <span className="text-6xl drop-shadow-lg">
-              {GENRE_EMOJI[movie.genre]}
-            </span>
-            <span className="text-white/80 font-medium text-sm text-center px-4 line-clamp-2">
-              {movie.title}
-            </span>
-          </div>
-        )}
+        <MoviePoster
+          posterUrl={movie.posterUrl}
+          title={movie.title}
+          genre={movie.genre}
+          className={cn(
+            "h-full w-full transition-transform duration-700",
+            "group-hover:scale-110",
+          )}
+          emojiSize="text-6xl"
+          showTitle
+        />
 
         {/* Градиент-оверлей снизу */}
         <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent opacity-0 transition-all duration-500 group-hover:opacity-100" />

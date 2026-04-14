@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { authStore } from "@/stores/authStore";
 import { ROLE_COLORS, ROLE_LABELS } from "@/types/user";
 import {
+  Building2,
   CalendarDays,
   Clapperboard,
   Film,
@@ -23,7 +24,10 @@ const BASE_NAV_ITEMS = [
   { to: "/generate", icon: Sparkles, label: "Генерация" },
 ];
 
-const ADMIN_NAV_ITEMS = [{ to: "/users", icon: Users, label: "Пользователи" }];
+const ADMIN_NAV_ITEMS = [
+  { to: "/organizations", icon: Building2, label: "Организации" },
+  { to: "/users", icon: Users, label: "Пользователи" },
+];
 
 export const AppLayout = observer(function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

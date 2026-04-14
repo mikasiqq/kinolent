@@ -4,5 +4,6 @@ from .schedules_db import router as schedules_db_router
 from .auth import router as auth_router
 from .users import router as users_router
 from .kinopoisk import router as kp_router
+from .organizations import router as orgs_router
 
-__all__ = ["movies_router", "halls_router", "schedules_db_router", "auth_router", "users_router", "kp_router"]
+__all__ = ["movies_router", "halls_router", "schedules_db_router", "auth_router", "users_router", "kp_router", "orgs_router"]

@@ -77,10 +77,11 @@ class RecalcRequest(BaseModel):
 
 # ── Эндпоинты ────────────────────────────────────────────────────────────────
 
-@router.get("", dependencies=[Depends(require_any)])
+@router.get("")
 async def list_schedules(
     status: str = Query("all", pattern="^(active|archived|all)$"),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_any),
 ):
     """Возвращает расписания с полными данными.
 
@@ -93,13 +94,14 @@ async def list_schedules(
     today_str = date.today().isoformat()
 
     # Авто-архивация: end_date < сегодня и ещё не в архиве
-    auto_archive = await db.execute(
-        select(SavedSchedule).where(
+    auto_q = select(SavedSchedule).where(
             SavedSchedule.is_archived == False,  # noqa: E712
             SavedSchedule.end_date.isnot(None),
             SavedSchedule.end_date < today_str,
         )
-    )
+    if user.org_id:
+        auto_q = auto_q.where(SavedSchedule.org_id == user.org_id)
+    auto_archive = await db.execute(auto_q)
     for s in auto_archive.scalars().all():
         s.is_archived = True
         if s.data and isinstance(s.data, dict):
@@ -108,6 +110,8 @@ async def list_schedules(
 
     # Фильтрация
     q = select(SavedSchedule).order_by(SavedSchedule.created_at.desc())
+    if user.org_id:
+        q = q.where(SavedSchedule.org_id == user.org_id)
     if status == "active":
         q = q.where(SavedSchedule.is_archived == False)  # noqa: E712
     elif status == "archived":
@@ -129,9 +133,11 @@ async def get_schedule(schedule_id: str, db: AsyncSession = Depends(get_db)):
     return s.data
 
 
-@router.post("", status_code=201, dependencies=[Depends(require_manager)])
+@router.post("", status_code=201)
 async def save_schedule(
-    body: ScheduleSaveBody, db: AsyncSession = Depends(get_db)
+    body: ScheduleSaveBody,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_manager),
 ):
     # Вычислить end_date если не указан
     end_date = body.endDate
@@ -160,6 +166,7 @@ async def save_schedule(
     else:
         s = SavedSchedule(
             id=body.id,
+            org_id=user.org_id,
             name=body.name,
             days=body.days,
             start_date=body.startDate,

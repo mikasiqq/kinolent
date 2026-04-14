@@ -496,6 +496,7 @@ export async function createUserApi(data: {
   name: string;
   password: string;
   role: string;
+  orgId?: string;
 }): Promise<unknown> {
   const res = await fetch(`${API_BASE}/api/users`, {
     method: "POST",
@@ -508,7 +509,12 @@ export async function createUserApi(data: {
 
 export async function updateUserApi(
   id: string,
-  data: { name: string; role: string; isActive: boolean },
+  data: {
+    name: string;
+    role: string;
+    isActive: boolean;
+    orgId?: string | null;
+  },
 ): Promise<unknown> {
   const res = await fetch(`${API_BASE}/api/users/${id}`, {
     method: "PUT",
@@ -526,6 +532,73 @@ export async function deleteUserApi(id: string): Promise<void> {
   });
   if (!res.ok && res.status !== 404)
     throw new Error(`deleteUser: ${res.status}`);
+}
+
+// ── Organizations API ─────────────────────────────────────────────────────────
+
+import type { Organization, OrganizationDetail } from "@/types/user";
+
+export async function fetchOrganizations(): Promise<Organization[]> {
+  const res = await fetch(`${API_BASE}/api/organizations`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`fetchOrganizations: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchOrganization(
+  id: string,
+): Promise<OrganizationDetail> {
+  const res = await fetch(`${API_BASE}/api/organizations/${id}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`fetchOrganization: ${res.status}`);
+  return res.json();
+}
+
+export async function createOrganizationApi(data: {
+  name: string;
+  slug?: string;
+  description?: string;
+  address?: string;
+  logoUrl?: string;
+}): Promise<Organization> {
+  const res = await fetch(`${API_BASE}/api/organizations`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`createOrganization: ${res.status}`);
+  return res.json();
+}
+
+export async function updateOrganizationApi(
+  id: string,
+  data: {
+    name: string;
+    slug?: string;
+    description?: string;
+    address?: string;
+    logoUrl?: string;
+    isActive?: boolean;
+  },
+): Promise<Organization> {
+  const res = await fetch(`${API_BASE}/api/organizations/${id}`, {
+    method: "PUT",
+    headers: jsonHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`updateOrganization: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteOrganizationApi(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/organizations/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok && res.status !== 404)
+    throw new Error(`deleteOrganization: ${res.status}`);
 }
 
 // ── Schedule Editing API ──────────────────────────────────────────────────────

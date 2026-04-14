@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import require_admin
+from api.deps import get_current_user, require_admin
 from db.models import User
 from db.session import get_db
 
@@ -29,12 +29,14 @@ class UserCreateBody(BaseModel):
     name: str
     password: str
     role: str = "viewer"  # admin | manager | viewer
+    orgId: str | None = None
 
 
 class UserUpdateBody(BaseModel):
     name: str
     role: str
     isActive: bool
+    orgId: str | None = None
 
 
 class UserOut(BaseModel):
@@ -43,6 +45,7 @@ class UserOut(BaseModel):
     name: str
     role: str
     isActive: bool
+    orgId: str | None
     createdAt: str
 
 
@@ -53,6 +56,7 @@ def _to_out(u: User) -> UserOut:
         name=u.name,
         role=u.role,
         isActive=u.is_active,
+        orgId=u.org_id,
         createdAt=u.created_at.isoformat() if u.created_at else "",
     )
 
@@ -80,6 +84,7 @@ async def create_user(body: UserCreateBody, db: AsyncSession = Depends(get_db)):
         name=body.name,
         password_hash=pwd_context.hash(body.password),
         role=body.role,
+        org_id=body.orgId,
     )
     db.add(user)
     await db.commit()
@@ -102,6 +107,8 @@ async def update_user(
     user.name = body.name
     user.role = body.role
     user.is_active = body.isActive
+    if body.orgId is not None:
+        user.org_id = body.orgId
     await db.commit()
     await db.refresh(user)
     return _to_out(user)

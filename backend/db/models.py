@@ -18,10 +18,30 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
+# ── Organization ──────────────────────────────────────────────────────────────
+
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    address: Mapped[str | None] = mapped_column(String(500))
+    logo_url: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+# ── Movie ─────────────────────────────────────────────────────────────────────
+
 class Movie(Base):
     __tablename__ = "movies"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    org_id: Mapped[str | None] = mapped_column(String, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     original_title: Mapped[str | None] = mapped_column(String(255))
     genre: Mapped[str] = mapped_column(String(50), nullable=False, default="drama")
@@ -44,6 +64,7 @@ class Hall(Base):
     __tablename__ = "halls"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    org_id: Mapped[str | None] = mapped_column(String, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     hall_type: Mapped[str] = mapped_column(String(20), nullable=False, default="2D")
@@ -57,6 +78,7 @@ class SavedSchedule(Base):
     __tablename__ = "saved_schedules"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    org_id: Mapped[str | None] = mapped_column(String, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -75,6 +97,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    org_id: Mapped[str | None] = mapped_column(String, index=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)

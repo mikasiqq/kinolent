@@ -10,7 +10,7 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import Hall, Movie, User
+from .models import Hall, Movie, Organization, User
 from .session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
@@ -121,3 +121,84 @@ async def seed_if_empty() -> None:
             db.add(admin)
             await db.commit()
             logger.info("Seeded default admin: admin@kinolent.ru / admin123")
+
+        # Создаём демо-организации если их нет
+        org_count = (await db.execute(select(Organization))).scalars().first()
+        if org_count is None:
+            await _seed_organizations(db)
+
+
+async def _seed_organizations(db: AsyncSession) -> None:
+    """Создаёт 2 демо-организации с залами и пользователями."""
+    from passlib.context import CryptContext
+    pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+    # ── Организация 1: Синема Парк Москва ─────────────────────────────────
+
+    org1 = Organization(
+        id="org_cinema_park",
+        name="Синема Парк Москва",
+        slug="cinema-park-moscow",
+        description="Крупнейшая сеть кинотеатров в Москве. 8 залов, включая IMAX и VIP.",
+        address="Москва, ул. Охотный Ряд, д. 2",
+    )
+    db.add(org1)
+
+    # Залы Синема Парк (8 залов)
+    org1_halls = [
+        Hall(id="cp_h1", org_id="org_cinema_park", name="Зал 1 — Большой", capacity=350, hall_type="2D", cleaning_minutes=15, floor=1, open_time="09:00", close_time="23:30"),
+        Hall(id="cp_h2", org_id="org_cinema_park", name="Зал 2 — IMAX", capacity=280, hall_type="IMAX", cleaning_minutes=20, floor=1, open_time="10:00", close_time="23:00"),
+        Hall(id="cp_h3", org_id="org_cinema_park", name="Зал 3 — Комфорт", capacity=150, hall_type="3D", cleaning_minutes=15, floor=2, open_time="09:00", close_time="23:30"),
+        Hall(id="cp_h4", org_id="org_cinema_park", name="Зал 4 — VIP", capacity=60, hall_type="VIP", cleaning_minutes=20, floor=3, open_time="11:00", close_time="23:00"),
+        Hall(id="cp_h5", org_id="org_cinema_park", name="Зал 5 — Стандарт", capacity=200, hall_type="2D", cleaning_minutes=15, floor=1, open_time="09:00", close_time="23:30"),
+        Hall(id="cp_h6", org_id="org_cinema_park", name="Зал 6 — Dolby Atmos", capacity=180, hall_type="3D", cleaning_minutes=20, floor=2, open_time="10:00", close_time="23:00"),
+        Hall(id="cp_h7", org_id="org_cinema_park", name="Зал 7 — Детский", capacity=100, hall_type="2D", cleaning_minutes=15, floor=1, open_time="09:00", close_time="21:00"),
+        Hall(id="cp_h8", org_id="org_cinema_park", name="Зал 8 — Премиум", capacity=80, hall_type="VIP", cleaning_minutes=20, floor=3, open_time="12:00", close_time="23:30"),
+    ]
+    for h in org1_halls:
+        db.add(h)
+
+    # Пользователи Синема Парк (5 менеджеров)
+    org1_users = [
+        User(org_id="org_cinema_park", email="ivanov@cinemapark.ru", name="Иванов Пётр", password_hash=pwd_ctx.hash("pass123"), role="manager"),
+        User(org_id="org_cinema_park", email="petrova@cinemapark.ru", name="Петрова Мария", password_hash=pwd_ctx.hash("pass123"), role="manager"),
+        User(org_id="org_cinema_park", email="sidorov@cinemapark.ru", name="Сидоров Алексей", password_hash=pwd_ctx.hash("pass123"), role="manager"),
+        User(org_id="org_cinema_park", email="kozlova@cinemapark.ru", name="Козлова Елена", password_hash=pwd_ctx.hash("pass123"), role="viewer"),
+        User(org_id="org_cinema_park", email="novikov@cinemapark.ru", name="Новиков Дмитрий", password_hash=pwd_ctx.hash("pass123"), role="viewer"),
+    ]
+    for u in org1_users:
+        db.add(u)
+
+    # ── Организация 2: Каро Фильм СПб ────────────────────────────────────
+
+    org2 = Organization(
+        id="org_karo_spb",
+        name="Каро Фильм СПб",
+        slug="karo-film-spb",
+        description="Сеть кинотеатров Каро Фильм в Санкт-Петербурге. 5 залов с современным оборудованием.",
+        address="Санкт-Петербург, Невский пр., д. 114",
+    )
+    db.add(org2)
+
+    # Залы Каро Фильм (5 залов)
+    org2_halls = [
+        Hall(id="kf_h1", org_id="org_karo_spb", name="Зал 1 — Основной", capacity=250, hall_type="2D", cleaning_minutes=15, floor=1, open_time="09:00", close_time="23:00"),
+        Hall(id="kf_h2", org_id="org_karo_spb", name="Зал 2 — IMAX", capacity=220, hall_type="IMAX", cleaning_minutes=20, floor=1, open_time="10:00", close_time="23:00"),
+        Hall(id="kf_h3", org_id="org_karo_spb", name="Зал 3 — 3D", capacity=130, hall_type="3D", cleaning_minutes=15, floor=2, open_time="09:00", close_time="23:00"),
+        Hall(id="kf_h4", org_id="org_karo_spb", name="Зал 4 — Комфорт", capacity=90, hall_type="VIP", cleaning_minutes=20, floor=2, open_time="11:00", close_time="23:00"),
+        Hall(id="kf_h5", org_id="org_karo_spb", name="Зал 5 — Мини", capacity=70, hall_type="2D", cleaning_minutes=15, floor=1, open_time="09:00", close_time="22:00"),
+    ]
+    for h in org2_halls:
+        db.add(h)
+
+    # Пользователи Каро Фильм (3 менеджера)
+    org2_users = [
+        User(org_id="org_karo_spb", email="smirnov@karofilm.ru", name="Смирнов Андрей", password_hash=pwd_ctx.hash("pass123"), role="manager"),
+        User(org_id="org_karo_spb", email="volkova@karofilm.ru", name="Волкова Анна", password_hash=pwd_ctx.hash("pass123"), role="manager"),
+        User(org_id="org_karo_spb", email="morozov@karofilm.ru", name="Морозов Игорь", password_hash=pwd_ctx.hash("pass123"), role="viewer"),
+    ]
+    for u in org2_users:
+        db.add(u)
+
+    await db.commit()
+    logger.info("Seeded 2 demo organizations: Синема Парк Москва (8 halls, 5 users), Каро Фильм СПб (5 halls, 3 users)")

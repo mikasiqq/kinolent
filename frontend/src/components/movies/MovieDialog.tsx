@@ -1,3 +1,4 @@
+import { MoviePoster } from "@/components/movies/MoviePoster";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -464,17 +465,13 @@ export function MovieDialog({ open, onOpenChange, movie }: MovieDialogProps) {
                         onClick={() => handleKpSelect(r.kpId)}
                         className="w-full flex items-start gap-3 p-2.5 text-left hover:bg-muted/50 transition-colors disabled:opacity-50"
                       >
-                        {r.posterUrl ? (
-                          <img
-                            src={r.posterUrl}
-                            alt=""
-                            className="w-10 h-14 rounded object-cover shrink-0"
-                          />
-                        ) : (
-                          <div className="w-10 h-14 rounded bg-muted flex items-center justify-center shrink-0">
-                            <Globe className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        )}
+                        <MoviePoster
+                          posterUrl={r.posterUrl}
+                          title={r.title}
+                          genre={r.genres?.[0]}
+                          className="w-10 h-14 rounded shrink-0"
+                          emojiSize="text-xl"
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">
                             {r.title}

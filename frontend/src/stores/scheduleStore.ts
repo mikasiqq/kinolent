@@ -94,8 +94,9 @@ function generateDemoSchedule(config: GenerationConfig): CinemaSchedule {
         totalAttendance += attendance;
         totalShows++;
 
-        // Следующий слот (+ уборка + stagger)
-        currentTime = endTime + hall.cleaningMinutes + config.staggerMinutes;
+        // Следующий слот (+ уборка + stagger), округлённый до 5 минут вверх
+        const rawNext = endTime + hall.cleaningMinutes + config.staggerMinutes;
+        currentTime = Math.ceil(rawNext / 5) * 5;
       }
 
       hallSchedules.push({

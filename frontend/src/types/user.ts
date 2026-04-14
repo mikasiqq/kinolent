@@ -6,6 +6,25 @@ export interface User {
   name: string;
   role: UserRole;
   isActive: boolean;
+  orgId?: string | null;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  address?: string | null;
+  logoUrl?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface OrganizationDetail extends Organization {
+  usersCount: number;
+  hallsCount: number;
+  moviesCount: number;
+  schedulesCount: number;
 }
 
 export interface AuthTokens {

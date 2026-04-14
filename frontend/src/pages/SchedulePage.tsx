@@ -1,6 +1,6 @@
 import { AddShowDialog } from "@/components/schedule/AddShowDialog";
 import { DaySelector } from "@/components/schedule/DaySelector";
-import { HallTimeline } from "@/components/schedule/HallTimeline";
+import { DndScheduleBoard } from "@/components/schedule/DndScheduleBoard";
 import { RatingBadge, RatingDialog } from "@/components/schedule/RatingWidget";
 import { ScheduleRenameDialog } from "@/components/schedule/ScheduleRenameDialog";
 import { ScheduleStats } from "@/components/schedule/ScheduleStats";
@@ -22,7 +22,6 @@ import {
   Info,
   Loader2,
   Pencil,
-  Plus,
   Sparkles,
   Star,
   Trash2,
@@ -291,7 +290,7 @@ export const SchedulePage = observer(function SchedulePage() {
           {/* Статистика дня */}
           <ScheduleStats />
 
-          {/* Таймлайны залов */}
+          {/* Drag & Drop доска расписания + панель фильмов */}
           <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
             <div className="border-b border-border/50 px-6 py-4">
               <div className="flex items-center justify-between w-full">
@@ -327,34 +326,14 @@ export const SchedulePage = observer(function SchedulePage() {
                     {scheduleStore.currentDayShows.length} сеансов
                   </Badge>
                 </h3>
-                <Button
-                  size="sm"
-                  onClick={() => setAddShowOpen(true)}
-                  className="gap-1.5 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
-                >
-                  <Plus className="h-4 w-4" />
-                  Добавить сеанс
-                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Перетаскивайте фильмы из панели справа • Двигайте сеансы по
+                  шкале • Перемещайте между залами
+                </p>
               </div>
             </div>
-            <div className="p-6">
-              <div className="space-y-8 pt-2">
-                {scheduleStore.currentDaySchedules.map((hs, index) => (
-                  <HallTimeline
-                    key={hs.hallId}
-                    shows={hs.shows}
-                    hallName={hs.hallName}
-                    hallIndex={index}
-                    onShowClick={handleShowClick}
-                  />
-                ))}
-                {scheduleStore.currentDaySchedules.length === 0 && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <CalendarDays className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                    <p>Нет сеансов на этот день</p>
-                  </div>
-                )}
-              </div>
+            <div className="p-4">
+              <DndScheduleBoard onShowClick={handleShowClick} />
             </div>
           </div>
 

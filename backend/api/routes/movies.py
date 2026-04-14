@@ -14,8 +14,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import require_any, require_manager
-from db.models import Movie
+from api.deps import get_current_user, require_any, require_manager
+from db.models import Movie, User
 from db.session import get_db
 
 router = APIRouter(prefix="/api/movies", tags=["movies"])
@@ -79,17 +79,26 @@ def _to_out(m: Movie) -> MovieOut:
 
 # ── Эндпоинты ────────────────────────────────────────────────────────────────
 
-@router.get("", response_model=list[MovieOut], dependencies=[Depends(require_any)])
-async def list_movies(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Movie).order_by(Movie.created_at.desc())
-    )
+@router.get("", response_model=list[MovieOut])
+async def list_movies(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_any),
+):
+    q = select(Movie).order_by(Movie.created_at.desc())
+    if user.org_id:
+        q = q.where((Movie.org_id == user.org_id) | (Movie.org_id.is_(None)))
+    result = await db.execute(q)
     return [_to_out(m) for m in result.scalars().all()]
 
 
-@router.post("", response_model=MovieOut, status_code=201, dependencies=[Depends(require_manager)])
-async def create_movie(body: MovieBody, db: AsyncSession = Depends(get_db)):
+@router.post("", response_model=MovieOut, status_code=201)
+async def create_movie(
+    body: MovieBody,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_manager),
+):
     movie = Movie(
+        org_id=user.org_id,
         title=body.title,
         original_title=body.originalTitle,
         genre=body.genre,

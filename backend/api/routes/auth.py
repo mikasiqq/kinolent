@@ -53,6 +53,7 @@ class UserOut(BaseModel):
     name: str
     role: str
     isActive: bool
+    orgId: str | None = None
 
 
 # ── Утилиты ──────────────────────────────────────────────────────────────────
@@ -77,7 +78,7 @@ def _make_tokens(user_id: str) -> TokenOut:
 
 
 def _user_out(u: User) -> UserOut:
-    return UserOut(id=u.id, email=u.email, name=u.name, role=u.role, isActive=u.is_active)
+    return UserOut(id=u.id, email=u.email, name=u.name, role=u.role, isActive=u.is_active, orgId=u.org_id)
 
 
 # ── Эндпоинты ────────────────────────────────────────────────────────────────

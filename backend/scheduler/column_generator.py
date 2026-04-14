@@ -111,7 +111,9 @@ class ColumnGenerator:
         adjacency: dict[_ScheduleNode, list[_ScheduleNode]] = {n: [] for n in nodes}
         for i, n1 in enumerate(nodes):
             show1 = node_show[n1]
-            earliest_next = show1.end_with_cleaning
+            # Округляем до кратного slot вверх для "красивых" стартов
+            raw_next = show1.end_with_cleaning
+            earliest_next = ((raw_next + slot - 1) // slot) * slot
             for j in range(i + 1, len(nodes)):
                 n2 = nodes[j]
                 if n2.start_minute >= earliest_next:
@@ -267,7 +269,10 @@ class ColumnGenerator:
             shows.append(best_show)
             movie_counts[best_show.movie.id] = movie_counts.get(best_show.movie.id, 0) + 1
             last_movie_id = best_show.movie.id
-            current_time = best_show.end_with_cleaning
+            # Округляем время до ближайшего кратного slot вверх,
+            # чтобы сеансы начинались в "красивое" время (напр. 12:55, 13:00)
+            raw_next = best_show.end_with_cleaning
+            current_time = ((raw_next + slot - 1) // slot) * slot
 
         return HallDaySchedule(hall=hall, day=day, shows=shows)
 

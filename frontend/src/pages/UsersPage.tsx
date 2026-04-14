@@ -20,13 +20,15 @@ import { cn } from "@/lib/utils";
 import {
   createUserApi,
   deleteUserApi,
+  fetchOrganizations,
   fetchUsers,
   updateUserApi,
 } from "@/services/api";
 import { authStore } from "@/stores/authStore";
-import type { UserRole } from "@/types/user";
+import type { Organization, UserRole } from "@/types/user";
 import { ROLE_LABELS } from "@/types/user";
 import {
+  Building2,
   CircleCheck,
   CircleMinus,
   Eye,
@@ -49,6 +51,7 @@ interface UserRecord {
   name: string;
   role: UserRole;
   isActive: boolean;
+  orgId?: string | null;
   createdAt: string;
 }
 
@@ -58,6 +61,7 @@ interface UserForm {
   password: string;
   role: UserRole;
   isActive: boolean;
+  orgId: string;
 }
 
 const EMPTY_FORM: UserForm = {
@@ -66,6 +70,7 @@ const EMPTY_FORM: UserForm = {
   password: "",
   role: "viewer",
   isActive: true,
+  orgId: "",
 };
 
 // ── Утилиты ───────────────────────────────────────────────────────────────────
@@ -98,6 +103,7 @@ function formatDate(iso: string): string {
 
 export const UsersPage = observer(function UsersPage() {
   const [users, setUsers] = useState<UserRecord[]>([]);
+  const [orgs, setOrgs] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -117,8 +123,12 @@ export const UsersPage = observer(function UsersPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchUsers();
-      setUsers(data as UserRecord[]);
+      const [userData, orgData] = await Promise.all([
+        fetchUsers(),
+        fetchOrganizations().catch(() => [] as Organization[]),
+      ]);
+      setUsers(userData as UserRecord[]);
+      setOrgs(orgData);
     } catch {
       setError("Не удалось загрузить пользователей");
     } finally {
@@ -147,6 +157,7 @@ export const UsersPage = observer(function UsersPage() {
       password: "",
       role: user.role,
       isActive: user.isActive,
+      orgId: user.orgId ?? "",
     });
     setFormError(null);
     setDialogOpen(true);
@@ -168,6 +179,7 @@ export const UsersPage = observer(function UsersPage() {
           name: form.name,
           role: form.role,
           isActive: form.isActive,
+          orgId: form.orgId || null,
         });
         setUsers((prev) =>
           prev.map((u) =>
@@ -180,6 +192,7 @@ export const UsersPage = observer(function UsersPage() {
           name: form.name,
           password: form.password,
           role: form.role,
+          orgId: form.orgId || undefined,
         });
         setUsers((prev) => [...prev, created as UserRecord]);
       }
@@ -341,9 +354,10 @@ export const UsersPage = observer(function UsersPage() {
           {filtered.length > 0 ? (
             <div className="rounded-xl border border-border/50 overflow-hidden">
               {/* Заголовок таблицы */}
-              <div className="hidden sm:grid grid-cols-[1fr_1.5fr_120px_100px_120px_88px] gap-4 px-5 py-3 bg-muted/30 border-b border-border/50 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="hidden sm:grid grid-cols-[1fr_1.2fr_160px_160px_100px_120px_88px] gap-4 px-5 py-3 bg-muted/30 border-b border-border/50 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 <span>Имя</span>
                 <span>Email</span>
+                <span>Организация</span>
                 <span>Роль</span>
                 <span>Статус</span>
                 <span>Создан</span>
@@ -357,7 +371,7 @@ export const UsersPage = observer(function UsersPage() {
                   return (
                     <div
                       key={user.id}
-                      className="grid grid-cols-1 sm:grid-cols-[1fr_1.5fr_120px_100px_120px_88px] gap-3 sm:gap-4 px-5 py-4 items-center hover:bg-muted/20 transition-colors group"
+                      className="grid grid-cols-1 sm:grid-cols-[1fr_1.2fr_160px_160px_100px_120px_88px] gap-3 sm:gap-4 px-5 py-4 items-center hover:bg-muted/20 transition-colors group"
                     >
                       {/* Имя */}
                       <div className="flex items-center gap-3">
@@ -380,6 +394,17 @@ export const UsersPage = observer(function UsersPage() {
                       <p className="text-sm text-muted-foreground truncate">
                         {user.email}
                       </p>
+
+                      {/* Организация */}
+                      <div className="flex items-center gap-1.5">
+                        <Building2 className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                        <span className="text-xs text-muted-foreground truncate">
+                          {user.orgId
+                            ? (orgs.find((o) => o.id === user.orgId)?.name ??
+                              "—")
+                            : "Без организации"}
+                        </span>
+                      </div>
 
                       {/* Роль */}
                       <div>
@@ -578,6 +603,43 @@ export const UsersPage = observer(function UsersPage() {
                   "Управление фильмами, залами и расписаниями"}
                 {form.role === "viewer" &&
                   "Только просмотр расписания и каталога"}
+              </p>
+            </div>
+
+            {/* Организация */}
+            <div className="space-y-2">
+              <Label>Организация</Label>
+              <Select
+                value={form.orgId || "__none__"}
+                onValueChange={(v) =>
+                  setForm((p) => ({
+                    ...p,
+                    orgId: v === "__none__" ? "" : v,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Без организации" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      Без организации
+                    </span>
+                  </SelectItem>
+                  {orgs.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>
+                      <span className="flex items-center gap-2">
+                        <Building2 className="h-3.5 w-3.5 text-indigo-500" />
+                        {org.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Привязка к организации определяет доступ к залам, фильмам и
+                расписаниям
               </p>
             </div>
 

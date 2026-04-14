@@ -13,8 +13,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import require_any, require_manager
-from db.models import Hall
+from api.deps import get_current_user, require_any, require_manager
+from db.models import Hall, User
 from db.session import get_db
 
 router = APIRouter(prefix="/api/halls", tags=["halls"])
@@ -58,15 +58,26 @@ def _to_out(h: Hall) -> HallOut:
 
 # ── Эндпоинты ────────────────────────────────────────────────────────────────
 
-@router.get("", response_model=list[HallOut], dependencies=[Depends(require_any)])
-async def list_halls(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Hall))
+@router.get("", response_model=list[HallOut])
+async def list_halls(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_any),
+):
+    q = select(Hall)
+    if user.org_id:
+        q = q.where((Hall.org_id == user.org_id) | (Hall.org_id.is_(None)))
+    result = await db.execute(q)
     return [_to_out(h) for h in result.scalars().all()]
 
 
-@router.post("", response_model=HallOut, status_code=201, dependencies=[Depends(require_manager)])
-async def create_hall(body: HallBody, db: AsyncSession = Depends(get_db)):
+@router.post("", response_model=HallOut, status_code=201)
+async def create_hall(
+    body: HallBody,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_manager),
+):
     hall = Hall(
+        org_id=user.org_id,
         name=body.name,
         capacity=body.capacity,
         hall_type=body.hallType,

@@ -38,14 +38,25 @@ async def init_db() -> None:
     # Миграция: добавить новые колонки в saved_schedules (если отсутствуют)
     async with engine.begin() as conn:
         from sqlalchemy import text
+        # saved_schedules migrations
         for col, col_type, default in [
             ("start_date", "VARCHAR(10)", "NULL"),
             ("end_date", "VARCHAR(10)", "NULL"),
             ("is_archived", "BOOLEAN", "FALSE"),
+            ("org_id", "VARCHAR", "NULL"),
         ]:
             try:
                 await conn.execute(text(
                     f"ALTER TABLE saved_schedules ADD COLUMN {col} {col_type} DEFAULT {default}"
+                ))
+            except Exception:
+                pass
+
+        # org_id for movies, halls, users
+        for table in ("movies", "halls", "users"):
+            try:
+                await conn.execute(text(
+                    f"ALTER TABLE {table} ADD COLUMN org_id VARCHAR DEFAULT NULL"
                 ))
             except Exception:
                 pass  # Колонка уже существует
