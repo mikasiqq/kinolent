@@ -7,8 +7,9 @@ POST   /api/schedules              — сохранить расписание
 PATCH  /api/schedules/{id}         — обновить (имя, данные)
 DELETE /api/schedules/{id}         — удалить расписание
 POST   /api/schedules/{id}/archive — архивировать / разархивировать
-POST   /api/schedules/{id}/rate    — оценить расписание
-GET    /api/schedules/{id}/ratings — рейтинги расписания
+POST   /api/schedules/{id}/comments — добавить комментарий
+GET    /api/schedules/{id}/comments — комментарии расписания
+DELETE /api/schedules/{id}/comments/{comment_id} — удалить комментарий
 POST   /api/schedules/recalculate  — пересчитать прогнозы посещаемости/выручки
 """
 from __future__ import annotations
@@ -22,7 +23,7 @@ from sqlalchemy import select, func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps import get_current_user, require_any, require_manager
-from db.models import Hall as HallDB, Movie as MovieDB, SavedSchedule, ScheduleRating, User
+from db.models import Hall as HallDB, Movie as MovieDB, SavedSchedule, ScheduleComment, User
 from db.session import get_db
 from scheduler.demand_forecaster import DemandForecaster
 from scheduler.models import Hall as SchedHall, Movie as SchedMovie, SchedulerConfig
@@ -73,9 +74,8 @@ class SchedulePatchBody(BaseModel):
     isArchived: bool | None = None
 
 
-class RatingBody(BaseModel):
-    rating: int = Field(..., ge=1, le=5)
-    comment: str | None = None
+class CommentBody(BaseModel):
+    comment: str = Field(..., min_length=1)
 
 
 class RecalcShowIn(BaseModel):
@@ -388,100 +388,83 @@ async def patch_schedule(
     return s.data
 
 
-# ── Оценки расписания ─────────────────────────────────────────────────────────
+# ── Комментарии расписания ─────────────────────────────────────────────────────
 
-@router.post("/{schedule_id}/rate", status_code=201, dependencies=[Depends(require_any)])
-async def rate_schedule(
+@router.post("/{schedule_id}/comments", status_code=201, dependencies=[Depends(require_any)])
+async def add_comment(
     schedule_id: str,
-    body: RatingBody,
+    body: CommentBody,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Проверяем, что расписание существует
+    """Добавить комментарий к расписанию (обратная связь / согласование)."""
     sched = (await db.execute(
         select(SavedSchedule).where(SavedSchedule.id == schedule_id)
     )).scalar_one_or_none()
     if not sched:
         raise HTTPException(404, "Schedule not found")
 
-    # Upsert: один пользователь — одна оценка на расписание
-    existing = (await db.execute(
-        select(ScheduleRating).where(
-            ScheduleRating.schedule_id == schedule_id,
-            ScheduleRating.user_id == user.id,
-        )
-    )).scalar_one_or_none()
-
-    if existing:
-        existing.rating = body.rating
-        existing.comment = body.comment
-    else:
-        r = ScheduleRating(
-            schedule_id=schedule_id,
-            user_id=user.id,
-            rating=body.rating,
-            comment=body.comment,
-        )
-        db.add(r)
-
-    await db.commit()
-
-    # Возвращаем среднюю оценку
-    avg_result = await db.execute(
-        select(sa_func.avg(ScheduleRating.rating), sa_func.count(ScheduleRating.id))
-        .where(ScheduleRating.schedule_id == schedule_id)
+    c = ScheduleComment(
+        schedule_id=schedule_id,
+        user_id=user.id,
+        comment=body.comment,
     )
-    avg_row = avg_result.one()
+    db.add(c)
+    await db.commit()
+    await db.refresh(c)
+
     return {
-        "averageRating": round(float(avg_row[0] or 0), 1),
-        "totalRatings": avg_row[1],
-        "myRating": body.rating,
-        "myComment": body.comment,
+        "id": c.id,
+        "userName": user.name,
+        "comment": c.comment,
+        "createdAt": c.created_at.isoformat() if c.created_at else "",
     }
 
 
-@router.get("/{schedule_id}/ratings", dependencies=[Depends(require_any)])
-async def get_ratings(
+@router.get("/{schedule_id}/comments", dependencies=[Depends(require_any)])
+async def get_comments(
     schedule_id: str,
-    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Средняя оценка
-    avg_result = await db.execute(
-        select(sa_func.avg(ScheduleRating.rating), sa_func.count(ScheduleRating.id))
-        .where(ScheduleRating.schedule_id == schedule_id)
-    )
-    avg_row = avg_result.one()
-
-    # Моя оценка
-    my = (await db.execute(
-        select(ScheduleRating).where(
-            ScheduleRating.schedule_id == schedule_id,
-            ScheduleRating.user_id == user.id,
-        )
-    )).scalar_one_or_none()
-
-    # Все оценки с именами
+    """Получить все комментарии к расписанию."""
     rows = (await db.execute(
-        select(ScheduleRating, User.name)
-        .join(User, ScheduleRating.user_id == User.id)
-        .where(ScheduleRating.schedule_id == schedule_id)
-        .order_by(ScheduleRating.created_at.desc())
+        select(ScheduleComment, User.name)
+        .join(User, ScheduleComment.user_id == User.id)
+        .where(ScheduleComment.schedule_id == schedule_id)
+        .order_by(ScheduleComment.created_at.desc())
     )).all()
 
     return {
-        "averageRating": round(float(avg_row[0] or 0), 1),
-        "totalRatings": avg_row[1],
-        "myRating": my.rating if my else None,
-        "myComment": my.comment if my else None,
-        "ratings": [
+        "totalComments": len(rows),
+        "comments": [
             {
-                "id": r.ScheduleRating.id,
+                "id": r.ScheduleComment.id,
                 "userName": r.name,
-                "rating": r.ScheduleRating.rating,
-                "comment": r.ScheduleRating.comment,
-                "createdAt": r.ScheduleRating.created_at.isoformat() if r.ScheduleRating.created_at else "",
+                "comment": r.ScheduleComment.comment,
+                "createdAt": r.ScheduleComment.created_at.isoformat() if r.ScheduleComment.created_at else "",
             }
             for r in rows
         ],
     }
+
+
+@router.delete("/{schedule_id}/comments/{comment_id}", status_code=204)
+async def delete_comment(
+    schedule_id: str,
+    comment_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Удалить свой комментарий (или любой — для admin/manager)."""
+    c = (await db.execute(
+        select(ScheduleComment).where(
+            ScheduleComment.id == comment_id,
+            ScheduleComment.schedule_id == schedule_id,
+        )
+    )).scalar_one_or_none()
+    if not c:
+        raise HTTPException(404, "Comment not found")
+    if c.user_id != user.id and user.role not in ("admin", "manager"):
+        raise HTTPException(403, "Нет прав на удаление этого комментария")
+    await db.delete(c)
+    await db.commit()

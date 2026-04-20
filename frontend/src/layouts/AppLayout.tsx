@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarDays,
   Clapperboard,
+  DoorOpen,
   Film,
   LayoutDashboard,
   LogOut,
@@ -18,8 +19,9 @@ import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 const BASE_NAV_ITEMS = [
-  { to: "/", icon: LayoutDashboard, label: "Дашборд" },
+  { to: "/", icon: LayoutDashboard, label: "Главная" },
   { to: "/movies", icon: Film, label: "Фильмы" },
+  { to: "/halls", icon: DoorOpen, label: "Залы" },
   { to: "/schedule", icon: CalendarDays, label: "Расписание" },
   { to: "/generate", icon: Sparkles, label: "Генерация" },
 ];

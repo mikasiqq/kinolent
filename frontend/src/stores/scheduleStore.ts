@@ -1,15 +1,16 @@
-import type { RatingsDetailResponse } from "@/services/api";
+import type { CommentsResponse } from "@/services/api";
 import {
+  deleteComment as apiDeleteComment,
   checkHealth,
   deleteScheduleFromDb,
+  fetchComments,
   fetchHalls,
-  fetchRatings,
   fetchSchedulesFromDb,
   generateScheduleViaWs,
   patchSchedule,
   recalculateSchedule,
   saveScheduleToDb,
-  submitRating,
+  submitComment,
 } from "@/services/api";
 import type {
   CinemaSchedule,
@@ -908,54 +909,59 @@ class ScheduleStore {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SCHEDULE RATINGS
+  // SCHEDULE COMMENTS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /** Рейтинги текущего расписания */
-  ratingsData: RatingsDetailResponse | null = null;
-  ratingsLoading = false;
+  /** Комментарии текущего расписания */
+  commentsData: CommentsResponse | null = null;
+  commentsLoading = false;
 
-  /** Загрузить рейтинги текущего расписания */
-  async loadRatings(scheduleId: string) {
-    this.ratingsLoading = true;
+  /** Загрузить комментарии расписания */
+  async loadComments(scheduleId: string) {
+    this.commentsLoading = true;
     try {
-      const data = await fetchRatings(scheduleId);
+      const data = await fetchComments(scheduleId);
       runInAction(() => {
-        this.ratingsData = data;
+        this.commentsData = data;
       });
     } catch (e) {
-      console.warn("loadRatings failed:", e);
+      console.warn("loadComments failed:", e);
     } finally {
       runInAction(() => {
-        this.ratingsLoading = false;
+        this.commentsLoading = false;
       });
     }
   }
 
-  /** Отправить оценку */
-  async rateSchedule(scheduleId: string, rating: number, comment?: string) {
+  /** Добавить комментарий */
+  async addComment(scheduleId: string, comment: string) {
     try {
-      const result = await submitRating(scheduleId, rating, comment);
+      const created = await submitComment(scheduleId, comment);
       runInAction(() => {
-        if (this.ratingsData) {
-          this.ratingsData.averageRating = result.averageRating;
-          this.ratingsData.totalRatings = result.totalRatings;
-          this.ratingsData.myRating = result.myRating;
-          this.ratingsData.myComment = result.myComment;
-        } else {
-          this.ratingsData = {
-            averageRating: result.averageRating,
-            totalRatings: result.totalRatings,
-            myRating: result.myRating,
-            myComment: result.myComment,
-            ratings: [],
-          };
+        if (this.commentsData) {
+          this.commentsData.comments.unshift(created);
+          this.commentsData.totalComments += 1;
         }
       });
-      // Reload full ratings
-      this.loadRatings(scheduleId);
     } catch (e) {
-      console.warn("rateSchedule failed:", e);
+      console.warn("addComment failed:", e);
+    }
+  }
+
+  /** Удалить комментарий */
+  async removeComment(scheduleId: string, commentId: string) {
+    try {
+      await apiDeleteComment(scheduleId, commentId);
+      runInAction(() => {
+        if (this.commentsData) {
+          this.commentsData.comments = this.commentsData.comments.filter(
+            (c) => c.id !== commentId,
+          );
+          this.commentsData.totalComments -= 1;
+        }
+      });
+    } catch (e) {
+      console.warn("removeComment failed:", e);
     }
   }
 }

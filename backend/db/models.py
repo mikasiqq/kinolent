@@ -108,14 +108,13 @@ class User(Base):
     )
 
 
-class ScheduleRating(Base):
-    __tablename__ = "schedule_ratings"
+class ScheduleComment(Base):
+    __tablename__ = "schedule_comments"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     schedule_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    rating: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-5
-    comment: Mapped[str | None] = mapped_column(Text)
+    comment: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

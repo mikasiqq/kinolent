@@ -35,7 +35,7 @@ export const DashboardPage = observer(function DashboardPage() {
         <div className="relative max-w-2xl">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-sm px-4 py-1.5 text-sm mb-6">
             <Sparkles className="h-4 w-4" />
-            Column Generation алгоритм
+            Умная оптимизация
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">
             Кинолент
@@ -134,11 +134,11 @@ export const DashboardPage = observer(function DashboardPage() {
         <QuickActionCard
           icon={<Sparkles className="h-7 w-7" />}
           title="Генерация"
-          description="Запустите алгоритм Column Generation для автоматического создания расписания"
+          description="Запустите автоматическое создание оптимального расписания"
           to="/generate"
           gradient="from-violet-500 to-purple-500"
           iconBg="bg-violet-100 dark:bg-violet-900/30 text-violet-600"
-          badge="CG алгоритм"
+          badge="Авто-расписание"
         />
       </div>
 
@@ -157,7 +157,7 @@ export const DashboardPage = observer(function DashboardPage() {
               </Button>
             </Link>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <MetricPill
               label="Сеансов"
               value={scheduleStore.currentSchedule.totalShows}
@@ -172,15 +172,6 @@ export const DashboardPage = observer(function DashboardPage() {
               label="Выручка"
               value={`${(scheduleStore.currentSchedule.totalRevenue / 1_000_000).toFixed(1)}M ₽`}
               color="amber"
-            />
-            <MetricPill
-              label="Gap"
-              value={
-                scheduleStore.currentSchedule.metrics.gapPct === -1
-                  ? "Greedy"
-                  : `${scheduleStore.currentSchedule.metrics.gapPct.toFixed(1)}%`
-              }
-              color="violet"
             />
           </div>
         </div>

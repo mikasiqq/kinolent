@@ -133,8 +133,8 @@ function PopularityGuideDialog({
             Гайд: как оценивать популярность фильма
           </DialogTitle>
           <DialogDescription>
-            Рекомендации основаны на модели SilverScheduler — научном алгоритме
-            оптимизации расписаний кинотеатров
+            Рекомендации основаны на научном алгоритме оптимизации расписаний
+            кинотеатров
           </DialogDescription>
         </DialogHeader>
 
@@ -150,11 +150,8 @@ function PopularityGuideDialog({
               <strong>оценка коммерческого потенциала</strong> фильма, а не
               субъективное «нравится / не нравится». Она определяет, какую долю
               зала фильм способен заполнить при прочих равных условиях. В
-              научной статье SilverScheduler это параметр{" "}
-              <em>
-                θ<sub>j</sub>
-              </em>{" "}
-              — «opening strength» (начальная привлекательность).
+              алгоритме оптимизации это <em>начальная привлекательность</em> —
+              насколько фильм способен привлечь зрителей на старте проката.
             </p>
           </div>
 
@@ -226,9 +223,9 @@ function PopularityGuideDialog({
           <div className="rounded-xl bg-muted/50 border border-border/50 p-4 space-y-2">
             <h4 className="font-semibold text-sm">Формула прогноза</h4>
             <p className="text-xs text-muted-foreground font-mono leading-relaxed">
-              attendance = capacity × fill_rate ×{" "}
-              <strong className="text-foreground">popularity</strong> ×
-              release_decay × day_factor × time_factor × holiday_bonus
+              посещаемость = вместимость × заполняемость ×{" "}
+              <strong className="text-foreground">популярность</strong> ×
+              спад_проката × день_недели × время_дня × праздничный_бонус
             </p>
             <p className="text-xs text-muted-foreground mt-2">
               Например, зал на 300 мест, суббота 20:00, популярность = 8 (0.8) →
@@ -359,10 +356,12 @@ export function MovieDialog({ open, onOpenChange, movie }: MovieDialogProps) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("503") || msg.includes("502")) {
         setKpError(
-          "КиноПоиск API недоступен с этой сети. Настройте HTTPS_PROXY в .env бэкенда.",
+          "Поиск по КиноПоиску недоступен. Обратитесь к администратору.",
         );
       } else if (msg.includes("501")) {
-        setKpError("KP_API_KEY не задан в .env бэкенда.");
+        setKpError(
+          "Поиск по КиноПоиску не настроен. Обратитесь к администратору.",
+        );
       } else {
         setKpError("Ошибка поиска: " + msg);
       }
@@ -521,7 +520,7 @@ export function MovieDialog({ open, onOpenChange, movie }: MovieDialogProps) {
                 <Label htmlFor="originalTitle">Оригинальное название</Label>
                 <Input
                   id="originalTitle"
-                  placeholder="Original Title"
+                  placeholder="Оригинальное название"
                   value={form.originalTitle}
                   onChange={(e) => updateField("originalTitle", e.target.value)}
                 />
@@ -607,7 +606,7 @@ export function MovieDialog({ open, onOpenChange, movie }: MovieDialogProps) {
 
             {/* Постер */}
             <div className="space-y-2">
-              <Label htmlFor="posterUrl">URL постера</Label>
+              <Label htmlFor="posterUrl">Ссылка на постер</Label>
               <Input
                 id="posterUrl"
                 placeholder="https://example.com/poster.jpg"

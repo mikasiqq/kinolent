@@ -2,6 +2,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/layouts/AppLayout";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { GenerateSchedulePage } from "@/pages/GenerateSchedulePage";
+import { HallsPage } from "@/pages/HallsPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { MoviesPage } from "@/pages/MoviesPage";
 import { OrganizationsPage } from "@/pages/OrganizationsPage";
@@ -18,6 +19,7 @@ function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/movies" element={<MoviesPage />} />
+            <Route path="/halls" element={<HallsPage />} />
             <Route path="/schedule" element={<SchedulePage />} />
             <Route path="/generate" element={<GenerateSchedulePage />} />
             <Route element={<ProtectedRoute requiredRole="admin" />}>

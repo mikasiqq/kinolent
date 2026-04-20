@@ -161,7 +161,7 @@ export const OrganizationsPage = observer(function OrganizationsPage() {
       load();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Ошибка сохранения";
-      setFormError(msg.includes("400") ? "Slug уже занят" : msg);
+      setFormError(msg.includes("400") ? "Такой идентификатор уже занят" : msg);
     } finally {
       setSaving(false);
     }
@@ -288,7 +288,7 @@ export const OrganizationsPage = observer(function OrganizationsPage() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           className="pl-9"
-          placeholder="Поиск по названию, slug или адресу..."
+          placeholder="Поиск по названию или адресу..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -480,10 +480,10 @@ export const OrganizationsPage = observer(function OrganizationsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="org-slug">Slug</Label>
+              <Label htmlFor="org-slug">Идентификатор</Label>
               <Input
                 id="org-slug"
-                placeholder="cinema-park-moscow (auto)"
+                placeholder="cinema-park-moscow (авто)"
                 value={form.slug}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, slug: e.target.value }))

@@ -1,7 +1,7 @@
 import { AddShowDialog } from "@/components/schedule/AddShowDialog";
 import { DaySelector } from "@/components/schedule/DaySelector";
 import { DndScheduleBoard } from "@/components/schedule/DndScheduleBoard";
-import { RatingBadge, RatingDialog } from "@/components/schedule/RatingWidget";
+import { CommentDialog } from "@/components/schedule/RatingWidget";
 import { ScheduleRenameDialog } from "@/components/schedule/ScheduleRenameDialog";
 import { ScheduleStats } from "@/components/schedule/ScheduleStats";
 import { ShowEditDialog } from "@/components/schedule/ShowEditDialog";
@@ -21,9 +21,9 @@ import {
   Clock,
   Info,
   Loader2,
+  MessageSquare,
   Pencil,
   Sparkles,
-  Star,
   Trash2,
   Users,
 } from "lucide-react";
@@ -47,7 +47,7 @@ export const SchedulePage = observer(function SchedulePage() {
   const [editingShow, setEditingShow] = useState<ScheduleShow | null>(null);
   const [showEditOpen, setShowEditOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
-  const [ratingOpen, setRatingOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const [addShowOpen, setAddShowOpen] = useState(false);
 
   function handleShowClick(show: ScheduleShow) {
@@ -234,50 +234,16 @@ export const SchedulePage = observer(function SchedulePage() {
               >
                 💰 {(schedule.totalRevenue / 1_000_000).toFixed(1)}M ₽
               </Badge>
-              {schedule.metrics.gapPct === -1 ? (
-                <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0 rounded-lg">
-                  ⚠️ Greedy fallback
-                </Badge>
-              ) : (
-                schedule.metrics.gapPct < 5 && (
-                  <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0 rounded-lg">
-                    ⚡ Gap {schedule.metrics.gapPct.toFixed(1)}%
-                  </Badge>
-                )
-              )}
               <div className="hidden sm:block h-5 w-px bg-border" />
-              <RatingBadge
-                scheduleId={schedule.id}
-                onOpenDialog={() => setRatingOpen(true)}
-              />
+
               <Button
                 size="sm"
                 variant="outline"
-                className="gap-1.5 h-8"
-                onClick={() => setRatingOpen(true)}
+                className="gap-1.5 h-8 border-blue-200/60 text-blue-700 hover:bg-blue-50 dark:border-blue-800/40 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                onClick={() => setCommentsOpen(true)}
               >
-                <Star className="h-3.5 w-3.5" />
-                Оценить
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className={cn(
-                  "gap-1.5 h-8",
-                  scheduleStore.metricsStale &&
-                    "border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20",
-                )}
-                disabled={scheduleStore.isRecalculating}
-                onClick={() => scheduleStore.recalculateMetrics()}
-              >
-                {scheduleStore.isRecalculating ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Calculator className="h-3.5 w-3.5" />
-                )}
-                {scheduleStore.metricsStale
-                  ? "Пересчитать прогнозы"
-                  : "Пересчитать"}
+                <MessageSquare className="h-3.5 w-3.5" />
+                Обсуждение
               </Button>
               <div className="flex items-center gap-1.5 text-muted-foreground ml-auto">
                 <Clock className="h-3 w-3" />
@@ -287,6 +253,39 @@ export const SchedulePage = observer(function SchedulePage() {
               </div>
             </div>
           </div>
+
+          {/* Баннер: прогнозы устарели */}
+          {scheduleStore.metricsStale && (
+            <div className="flex items-center gap-3 rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50/80 dark:bg-amber-900/10 px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  Расписание изменилось
+                </p>
+                <p className="text-xs text-amber-600/80 dark:text-amber-400/70">
+                  Прогнозы посещаемости и выручки могут быть неточными —
+                  обновите их для актуальных данных
+                </p>
+              </div>
+              <Button
+                size="sm"
+                disabled={scheduleStore.isRecalculating}
+                onClick={() => scheduleStore.recalculateMetrics()}
+                className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white shadow-sm gap-1.5"
+              >
+                {scheduleStore.isRecalculating ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Calculator className="h-3.5 w-3.5" />
+                )}
+                {scheduleStore.isRecalculating
+                  ? "Пересчёт…"
+                  : "Обновить прогнозы"}
+              </Button>
+            </div>
+          )}
 
           {/* Выбор дня */}
           <Tabs>
@@ -368,11 +367,11 @@ export const SchedulePage = observer(function SchedulePage() {
             open={renameOpen}
             onOpenChange={setRenameOpen}
           />
-          <RatingDialog
+          <CommentDialog
             scheduleId={schedule.id}
             scheduleName={schedule.name}
-            open={ratingOpen}
-            onOpenChange={setRatingOpen}
+            open={commentsOpen}
+            onOpenChange={setCommentsOpen}
           />
           <AddShowDialog
             open={addShowOpen}
@@ -512,9 +511,8 @@ function EmptyScheduleState({ onGenerate }: { onGenerate: () => void }) {
       </div>
       <h3 className="text-xl font-bold">Расписание не создано</h3>
       <p className="text-muted-foreground mt-2 max-w-md text-sm">
-        Сгенерируйте оптимальное расписание кинотеатра на основе алгоритма
-        Column Generation. Система автоматически распределит фильмы по залам и
-        временным слотам.
+        Сгенерируйте оптимальное расписание кинотеатра. Система автоматически
+        распределит фильмы по залам и временным слотам для максимальной выручки.
       </p>
       <Button
         onClick={onGenerate}

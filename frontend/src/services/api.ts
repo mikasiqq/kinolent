@@ -28,13 +28,63 @@ const WS_BASE = API_BASE.replace(/^http/, "ws");
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
+const ACCESS_KEY = "kinolent_access_token";
+const REFRESH_KEY = "kinolent_refresh_token";
+
 function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem("kinolent_access_token");
+  const token = localStorage.getItem(ACCESS_KEY);
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 function jsonHeaders(): Record<string, string> {
   return { "Content-Type": "application/json", ...authHeaders() };
+}
+
+/** Автоматический refresh при 401 и повтор запроса. */
+let _refreshPromise: Promise<boolean> | null = null;
+
+async function _doRefresh(): Promise<boolean> {
+  const refreshToken = localStorage.getItem(REFRESH_KEY);
+  if (!refreshToken) return false;
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as {
+      accessToken: string;
+      refreshToken: string;
+    };
+    localStorage.setItem(ACCESS_KEY, data.accessToken);
+    localStorage.setItem(REFRESH_KEY, data.refreshToken);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchWithAuth(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  let res = await fetch(input, init);
+  if (res.status !== 401) return res;
+
+  // Одновременный refresh — дедупликация
+  if (!_refreshPromise) {
+    _refreshPromise = _doRefresh().finally(() => {
+      _refreshPromise = null;
+    });
+  }
+  const ok = await _refreshPromise;
+  if (!ok) return res; // refresh failed — вернуть 401
+
+  // Повторить запрос с новым токеном
+  const newInit = { ...init, headers: { ...init?.headers, ...authHeaders() } };
+  res = await fetch(input, newInit);
+  return res;
 }
 
 function wsUrl(): string {
@@ -320,11 +370,14 @@ export async function generateScheduleHttp(
   movies: Movie[],
 ): Promise<CinemaSchedule> {
   const body = buildRequestBody(config, movies);
-  const response = await fetch(`${API_BASE}/api/schedule/generate-full`, {
-    method: "POST",
-    headers: jsonHeaders(),
-    body: JSON.stringify(body),
-  });
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/schedule/generate-full`,
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify(body),
+    },
+  );
 
   if (!response.ok) {
     const text = await response.text();
@@ -352,13 +405,15 @@ export async function checkHealth(): Promise<boolean> {
 // ── Movies CRUD ───────────────────────────────────────────────────────────────
 
 export async function fetchMovies(): Promise<Movie[]> {
-  const res = await fetch(`${API_BASE}/api/movies`, { headers: authHeaders() });
+  const res = await fetchWithAuth(`${API_BASE}/api/movies`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`fetchMovies: ${res.status}`);
   return res.json() as Promise<Movie[]>;
 }
 
 export async function createMovie(data: MovieFormData): Promise<Movie> {
-  const res = await fetch(`${API_BASE}/api/movies`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/movies`, {
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify(data),
@@ -371,7 +426,7 @@ export async function updateMovie(
   id: string,
   data: MovieFormData,
 ): Promise<Movie> {
-  const res = await fetch(`${API_BASE}/api/movies/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/movies/${id}`, {
     method: "PUT",
     headers: jsonHeaders(),
     body: JSON.stringify(data),
@@ -381,7 +436,7 @@ export async function updateMovie(
 }
 
 export async function toggleMovieApi(id: string): Promise<Movie> {
-  const res = await fetch(`${API_BASE}/api/movies/${id}/toggle`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/movies/${id}/toggle`, {
     method: "PATCH",
     headers: authHeaders(),
   });
@@ -390,7 +445,7 @@ export async function toggleMovieApi(id: string): Promise<Movie> {
 }
 
 export async function deleteMovieApi(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/movies/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/movies/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -400,7 +455,9 @@ export async function deleteMovieApi(id: string): Promise<void> {
 // ── Halls CRUD ────────────────────────────────────────────────────────────────
 
 export async function fetchHalls(): Promise<HallConfig[]> {
-  const res = await fetch(`${API_BASE}/api/halls`, { headers: authHeaders() });
+  const res = await fetchWithAuth(`${API_BASE}/api/halls`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`fetchHalls: ${res.status}`);
   const halls = (await res.json()) as Array<HallConfig & { enabled?: boolean }>;
   return halls.map((h) => ({ ...h, enabled: true }));
@@ -409,7 +466,7 @@ export async function fetchHalls(): Promise<HallConfig[]> {
 export async function createHallApi(
   data: Omit<HallConfig, "id" | "enabled">,
 ): Promise<HallConfig> {
-  const res = await fetch(`${API_BASE}/api/halls`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/halls`, {
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify(data),
@@ -423,7 +480,7 @@ export async function updateHallApi(
   id: string,
   data: Omit<HallConfig, "id" | "enabled">,
 ): Promise<HallConfig> {
-  const res = await fetch(`${API_BASE}/api/halls/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/halls/${id}`, {
     method: "PUT",
     headers: jsonHeaders(),
     body: JSON.stringify(data),
@@ -434,7 +491,7 @@ export async function updateHallApi(
 }
 
 export async function deleteHallApi(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/halls/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/halls/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -444,7 +501,7 @@ export async function deleteHallApi(id: string): Promise<void> {
 // ── Schedules persistence ─────────────────────────────────────────────────────
 
 export async function fetchSchedulesFromDb(): Promise<CinemaSchedule[]> {
-  const res = await fetch(`${API_BASE}/api/schedules`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/schedules`, {
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error(`fetchSchedules: ${res.status}`);
@@ -454,7 +511,7 @@ export async function fetchSchedulesFromDb(): Promise<CinemaSchedule[]> {
 export async function saveScheduleToDb(
   schedule: CinemaSchedule,
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/schedules`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/schedules`, {
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify({
@@ -474,7 +531,7 @@ export async function saveScheduleToDb(
 }
 
 export async function deleteScheduleFromDb(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/schedules/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/schedules/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -485,7 +542,9 @@ export async function deleteScheduleFromDb(id: string): Promise<void> {
 // ── Users API ─────────────────────────────────────────────────────────────────
 
 export async function fetchUsers(): Promise<unknown[]> {
-  const res = await fetch(`${API_BASE}/api/users`, { headers: authHeaders() });
+  const res = await fetchWithAuth(`${API_BASE}/api/users`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`fetchUsers: ${res.status}`);
   return res.json();
 }
@@ -497,7 +556,7 @@ export async function createUserApi(data: {
   role: string;
   orgId?: string;
 }): Promise<unknown> {
-  const res = await fetch(`${API_BASE}/api/users`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/users`, {
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify(data),
@@ -515,7 +574,7 @@ export async function updateUserApi(
     orgId?: string | null;
   },
 ): Promise<unknown> {
-  const res = await fetch(`${API_BASE}/api/users/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/users/${id}`, {
     method: "PUT",
     headers: jsonHeaders(),
     body: JSON.stringify(data),
@@ -525,7 +584,7 @@ export async function updateUserApi(
 }
 
 export async function deleteUserApi(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/users/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/users/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -538,7 +597,7 @@ export async function deleteUserApi(id: string): Promise<void> {
 import type { Organization, OrganizationDetail } from "@/types/user";
 
 export async function fetchOrganizations(): Promise<Organization[]> {
-  const res = await fetch(`${API_BASE}/api/organizations`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/organizations`, {
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error(`fetchOrganizations: ${res.status}`);
@@ -548,7 +607,7 @@ export async function fetchOrganizations(): Promise<Organization[]> {
 export async function fetchOrganization(
   id: string,
 ): Promise<OrganizationDetail> {
-  const res = await fetch(`${API_BASE}/api/organizations/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/organizations/${id}`, {
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error(`fetchOrganization: ${res.status}`);
@@ -562,7 +621,7 @@ export async function createOrganizationApi(data: {
   address?: string;
   logoUrl?: string;
 }): Promise<Organization> {
-  const res = await fetch(`${API_BASE}/api/organizations`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/organizations`, {
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify(data),
@@ -582,7 +641,7 @@ export async function updateOrganizationApi(
     isActive?: boolean;
   },
 ): Promise<Organization> {
-  const res = await fetch(`${API_BASE}/api/organizations/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/organizations/${id}`, {
     method: "PUT",
     headers: jsonHeaders(),
     body: JSON.stringify(data),
@@ -592,7 +651,7 @@ export async function updateOrganizationApi(
 }
 
 export async function deleteOrganizationApi(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/organizations/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/organizations/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -615,7 +674,7 @@ export async function patchSchedule(
     isArchived?: boolean;
   },
 ): Promise<unknown> {
-  const res = await fetch(`${API_BASE}/api/schedules/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/schedules/${id}`, {
     method: "PATCH",
     headers: jsonHeaders(),
     body: JSON.stringify(data),
@@ -624,47 +683,58 @@ export async function patchSchedule(
   return res.json();
 }
 
-// ── Schedule Rating API ───────────────────────────────────────────────────────
+// ── Schedule Comments API ─────────────────────────────────────────────────────
 
-export interface RatingResponse {
-  averageRating: number;
-  totalRatings: number;
-  myRating: number | null;
-  myComment: string | null;
+export interface ScheduleCommentItem {
+  id: string;
+  userName: string;
+  comment: string;
+  createdAt: string;
 }
 
-export interface RatingsDetailResponse extends RatingResponse {
-  ratings: {
-    id: string;
-    userName: string;
-    rating: number;
-    comment: string | null;
-    createdAt: string;
-  }[];
+export interface CommentsResponse {
+  totalComments: number;
+  comments: ScheduleCommentItem[];
 }
 
-export async function submitRating(
+export async function submitComment(
   scheduleId: string,
-  rating: number,
-  comment?: string,
-): Promise<RatingResponse> {
-  const res = await fetch(`${API_BASE}/api/schedules/${scheduleId}/rate`, {
-    method: "POST",
-    headers: jsonHeaders(),
-    body: JSON.stringify({ rating, comment: comment || null }),
-  });
-  if (!res.ok) throw new Error(`submitRating: ${res.status}`);
+  comment: string,
+): Promise<ScheduleCommentItem> {
+  const res = await fetchWithAuth(
+    `${API_BASE}/api/schedules/${scheduleId}/comments`,
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify({ comment }),
+    },
+  );
+  if (!res.ok) throw new Error(`submitComment: ${res.status}`);
   return res.json();
 }
 
-export async function fetchRatings(
+export async function fetchComments(
   scheduleId: string,
-): Promise<RatingsDetailResponse> {
-  const res = await fetch(`${API_BASE}/api/schedules/${scheduleId}/ratings`, {
-    headers: authHeaders(),
-  });
-  if (!res.ok) throw new Error(`fetchRatings: ${res.status}`);
+): Promise<CommentsResponse> {
+  const res = await fetchWithAuth(
+    `${API_BASE}/api/schedules/${scheduleId}/comments`,
+    {
+      headers: authHeaders(),
+    },
+  );
+  if (!res.ok) throw new Error(`fetchComments: ${res.status}`);
   return res.json();
+}
+
+export async function deleteComment(
+  scheduleId: string,
+  commentId: string,
+): Promise<void> {
+  const res = await fetchWithAuth(
+    `${API_BASE}/api/schedules/${scheduleId}/comments/${commentId}`,
+    { method: "DELETE", headers: authHeaders() },
+  );
+  if (!res.ok) throw new Error(`deleteComment: ${res.status}`);
 }
 
 // ── Schedule Recalculation API ────────────────────────────────────────────────
@@ -694,7 +764,7 @@ export interface RecalcResponse {
 export async function recalculateSchedule(
   shows: RecalcShowInput[],
 ): Promise<RecalcResponse> {
-  const res = await fetch(`${API_BASE}/api/schedules/recalculate`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/schedules/recalculate`, {
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify({ shows }),
@@ -733,7 +803,7 @@ export interface KpMovieDetails {
 }
 
 export async function kpSearch(query: string): Promise<KpSearchResult[]> {
-  const res = await fetch(
+  const res = await fetchWithAuth(
     `${API_BASE}/api/kp/search?query=${encodeURIComponent(query)}`,
     { headers: authHeaders() },
   );
@@ -743,7 +813,7 @@ export async function kpSearch(query: string): Promise<KpSearchResult[]> {
 }
 
 export async function kpDetails(kpId: number): Promise<KpMovieDetails> {
-  const res = await fetch(`${API_BASE}/api/kp/${kpId}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/kp/${kpId}`, {
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error(`kp details: ${res.status}`);

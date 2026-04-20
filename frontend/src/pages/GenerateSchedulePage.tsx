@@ -23,7 +23,6 @@ import {
   Timer,
   Users,
   XCircle,
-  Zap,
 } from "lucide-react";
 import { observer } from "mobx-react";
 import { useNavigate } from "react-router-dom";
@@ -206,7 +205,7 @@ const ConfigurationView = observer(function ConfigurationView({
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lpTimeLimit">Лимит LP-решателя (сек)</Label>
+                <Label htmlFor="lpTimeLimit">Лимит вычислений (сек)</Label>
                 <Input
                   id="lpTimeLimit"
                   type="number"
@@ -365,7 +364,7 @@ const ConfigurationView = observer(function ConfigurationView({
             <div className="border-t border-border/50 pt-4">
               <div className="text-xs text-muted-foreground space-y-2">
                 <div className="flex justify-between">
-                  <span>Макс. столбцов/итерацию</span>
+                  <span>Глубина оптимизации</span>
                   <span className="font-medium text-foreground">
                     {config.maxColumnsPerIteration}
                   </span>
@@ -424,7 +423,7 @@ function GeneratingView({
         </div>
         <h2 className="text-2xl font-bold">Генерация расписания</h2>
         <p className="text-muted-foreground mt-1">
-          Column Generation алгоритм работает...
+          Алгоритм оптимизации работает...
         </p>
       </div>
 
@@ -513,7 +512,7 @@ function CompletedView({
       </div>
 
       {/* Результаты */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="rounded-xl bg-blue-50 dark:bg-blue-900/20 p-5 text-center">
           <CalendarDays className="h-7 w-7 mx-auto text-blue-500 mb-2" />
           <p className="text-3xl font-bold">{schedule.totalShows}</p>
@@ -533,39 +532,16 @@ function CompletedView({
           </p>
           <p className="text-xs text-muted-foreground mt-1">₽ выручка</p>
         </div>
-        <div className="rounded-xl bg-violet-50 dark:bg-violet-900/20 p-5 text-center">
-          <Zap className="h-7 w-7 mx-auto text-violet-500 mb-2" />
-          <p className="text-3xl font-bold">
-            {schedule.metrics.gapPct === -1
-              ? "Greedy"
-              : `${schedule.metrics.gapPct.toFixed(1)}%`}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {schedule.metrics.gapPct === -1 ? "fallback" : "gap"}
-          </p>
-        </div>
       </div>
 
       {/* Метрики оптимизации */}
       <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
         <div className="border-b border-border/50 px-6 py-4 flex items-center gap-2">
           <Timer className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-bold">Метрики оптимизации</h3>
+          <h3 className="text-sm font-bold">Детали расчёта</h3>
         </div>
         <div className="p-6">
           <div className="grid grid-cols-2 gap-5 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">LP-граница</span>
-              <span className="font-mono font-medium">
-                {(schedule.metrics.lpBound / 1_000_000).toFixed(2)}M ₽
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">IP-решение</span>
-              <span className="font-mono font-medium">
-                {(schedule.metrics.ipObjective / 1_000_000).toFixed(2)}M ₽
-              </span>
-            </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Время генерации</span>
               <span className="font-mono font-medium">
@@ -573,7 +549,9 @@ function CompletedView({
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Столбцов создано</span>
+              <span className="text-muted-foreground">
+                Вариантов рассмотрено
+              </span>
               <span className="font-mono font-medium">
                 {schedule.metrics.columnsGenerated}
               </span>
