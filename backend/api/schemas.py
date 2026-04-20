@@ -35,7 +35,6 @@ class GenerateRequest(BaseModel):
     stagger_minutes: int = Field(alias="staggerMinutes", default=5, ge=0)
     max_columns_per_iteration: int = Field(alias="maxColumnsPerIteration", default=100, ge=10)
     lp_time_limit_seconds: int = Field(alias="lpTimeLimitSeconds", default=30, ge=1)
-    anti_crowding: bool = Field(alias="antiCrowding", default=True)
     children_daytime_only: bool = Field(alias="childrenDaytimeOnly", default=True)
 
     model_config = {"populate_by_name": True}
@@ -111,7 +110,6 @@ class QualityReportOut(BaseModel):
     total_attendance: int = Field(alias="totalAttendance")
     total_movie_switches: int = Field(alias="totalMovieSwitches")
     stagger_violations: int = Field(alias="staggerViolations")
-    crowding_violations: int = Field(alias="crowdingViolations")
     same_movie_stagger_violations: int = Field(alias="sameMovieStaggerViolations")
     early_closure_violations: int = Field(alias="earlyClosureViolations")
     optimality_gap_pct: float = Field(alias="optimalityGapPct")

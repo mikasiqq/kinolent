@@ -234,10 +234,16 @@ export const SchedulePage = observer(function SchedulePage() {
               >
                 💰 {(schedule.totalRevenue / 1_000_000).toFixed(1)}M ₽
               </Badge>
-              {schedule.metrics.gapPct < 5 && (
-                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0 rounded-lg">
-                  ⚡ Gap {schedule.metrics.gapPct.toFixed(1)}%
+              {schedule.metrics.gapPct === -1 ? (
+                <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0 rounded-lg">
+                  ⚠️ Greedy fallback
                 </Badge>
+              ) : (
+                schedule.metrics.gapPct < 5 && (
+                  <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0 rounded-lg">
+                    ⚡ Gap {schedule.metrics.gapPct.toFixed(1)}%
+                  </Badge>
+                )
               )}
               <div className="hidden sm:block h-5 w-px bg-border" />
               <RatingBadge

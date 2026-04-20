@@ -76,7 +76,6 @@ export interface GenerationConfig {
   staggerMinutes: number;
   maxColumnsPerIteration: number;
   lpTimeLimitSeconds: number;
-  antiCrowding: boolean;
   childrenDaytimeOnly: boolean;
 }
 

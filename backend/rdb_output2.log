@@ -1,0 +1,60 @@
+INFO:scheduler.solver:=== Column Generation Solver START ===
+INFO:scheduler.solver:Scale: 8 halls × 7 days = 56 (hall,day) pairs
+INFO:scheduler.solver:Large instance: capped columns/hd=50, CG iters=5
+INFO:scheduler.solver:Auto max_shows/movie/day = 6 (halls=8, movies=15, total_slots~32)
+INFO:scheduler.solver:Initial columns: 3696
+INFO:scheduler.solver:Lagrangian relaxation: LB = 242932219819 (15 subgradient iters, step=2.000)
+INFO:scheduler.solver:CG iter 0: LP obj = 6013502, LB = 242932219819, columns = 3696
+INFO:scheduler.solver:  Added 425 new columns
+INFO:scheduler.solver:Lagrangian relaxation: LB = 299340506107 (15 subgradient iters, step=2.000)
+INFO:scheduler.solver:CG iter 1: LP obj = 6013502, LB = 299340506107, columns = 4121
+INFO:scheduler.solver:CG converged at iteration 1
+INFO:scheduler.solver:Pre-filter: 4121 → 2805 columns (top-50/hd + diversity)
+INFO:scheduler.solver:Diversity bonus: D=86351 (avg_col_rev=86351, weight=10000.0)
+INFO:scheduler.solver:Diversity bonus weight D=86350.9870127964, movies=15, max possible bonus/day=1295265
+INFO:scheduler.solver:Same-movie stagger: 0 conflict constraints added
+INFO:scheduler.solver:MILP: 2805 vars, timeout=120s
+WARNING:scheduler.solver:MILP infeasible (status=-1), retrying without same-movie stagger
+WARNING:scheduler.solver:MILP still infeasible (status=-1), relaxing maxshows (doubling)
+WARNING:scheduler.solver:MILP still infeasible (status=-1), removing maxshows entirely
+WARNING:scheduler.solver:MILP still infeasible (status=-1), retrying without minshows+diversity
+WARNING:scheduler.solver:PuLP MILP status = -1, falling back to greedy
+INFO:scheduler.solver:IP obj = 8061348, LP bound = 6013502, LR bound = 299340506107, Best UB = 6013502, Gap = -1.00%
+INFO:scheduler.solver:=== Solver DONE: revenue=8061348, attendance=23032, shows=234 ===
+Movies: 15, Halls: 8
+  Интерстеллар: Возвращение: pop=0.90, copies=4
+  Гладиатор 2: pop=0.80, copies=5
+  Головоломка 2: pop=0.80, copies=6
+  Оппенгеймер: pop=1.00, copies=4
+  Тихое место: День первый: pop=0.60, copies=3
+  Чужой: Ромул: pop=0.70, copies=3
+  Гарри Поттер: Новое поколение: pop=0.90, copies=5
+  Миссия невыполнима: Финальная расплата: pop=0.80, copies=4
+  Человек-паук: За пределами вселенных: pop=0.90, copies=5
+  Аватар: Огонь и пепел: pop=0.90, copies=4
+  Как приручить дракона: pop=0.80, copies=6
+  Формула-1: pop=0.70, copies=4
+  Носферату: pop=0.70, copies=3
+  Вонки 2: pop=0.80, copies=5
+  Трон: Арес: pop=0.70, copies=4
+
+Shows: 234, Revenue: 8.06M
+Greedy: True, Gap: -1.00%
+Diversity (8/15 movies):
+   85  Оппенгеймер
+   61  Головоломка 2
+   29  Гарри Поттер: Новое поколение
+   25  Аватар: Огонь и пепел
+   20  Как приручить дракона
+    6  Чужой: Ромул
+    4  Тихое место: День первый
+    4  Человек-паук: За пределами вселенных
+
+Per day:
+  Day 0: 5/15 movies
+  Day 1: 5/15 movies
+  Day 2: 5/15 movies
+  Day 3: 5/15 movies
+  Day 4: 5/15 movies
+  Day 5: 6/15 movies
+  Day 6: 6/15 movies

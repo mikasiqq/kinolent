@@ -31,7 +31,6 @@ const DEFAULT_CONFIG: Omit<GenerationConfig, "halls"> = {
   staggerMinutes: 5,
   maxColumnsPerIteration: 100,
   lpTimeLimitSeconds: 30,
-  antiCrowding: true,
   childrenDaytimeOnly: true,
 };
 

@@ -1,21 +1,21 @@
-import { observer } from "mobx-react";
-import {
-  CalendarDays,
-  Film,
-  Sparkles,
-  ArrowRight,
-  BarChart3,
-  Clock,
-  Clapperboard,
-  Popcorn,
-  Star,
-} from "lucide-react";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { movieStore } from "@/stores/movieStore";
 import { scheduleStore } from "@/stores/scheduleStore";
-import { cn } from "@/lib/utils";
+import {
+  ArrowRight,
+  BarChart3,
+  CalendarDays,
+  Clapperboard,
+  Clock,
+  Film,
+  Popcorn,
+  Sparkles,
+  Star,
+} from "lucide-react";
+import { observer } from "mobx-react";
+import { Link } from "react-router-dom";
 
 export const DashboardPage = observer(function DashboardPage() {
   const hasSchedule = scheduleStore.schedules.length > 0;
@@ -175,7 +175,11 @@ export const DashboardPage = observer(function DashboardPage() {
             />
             <MetricPill
               label="Gap"
-              value={`${scheduleStore.currentSchedule.metrics.gapPct.toFixed(1)}%`}
+              value={
+                scheduleStore.currentSchedule.metrics.gapPct === -1
+                  ? "Greedy"
+                  : `${scheduleStore.currentSchedule.metrics.gapPct.toFixed(1)}%`
+              }
               color="violet"
             />
           </div>

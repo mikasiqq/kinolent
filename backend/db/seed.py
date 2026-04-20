@@ -72,18 +72,65 @@ _DEMO_MOVIES = [
         description="Дети Гарри, Рона и Гермионы начинают своё первое приключение в Хогвартсе.",
         director="Дэвид Йейтс", popularity=9.0, min_shows_per_day=0, max_shows_per_day=5, is_active=True,
     ),
+    dict(
+        id="9", title="Миссия невыполнима: Финальная расплата", original_title="Mission: Impossible — Final Reckoning",
+        genre="action", duration=162, age_rating="16+", release_date="2025-05-23",
+        poster_url=None,
+        description="Итан Хант выходит на последнее задание против глобальной цифровой угрозы.",
+        director="Кристофер Маккуорри", popularity=8.0, min_shows_per_day=0, max_shows_per_day=4, is_active=True,
+    ),
+    dict(
+        id="10", title="Человек-паук: За пределами вселенных", original_title="Spider-Man: Beyond the Spider-Verse",
+        genre="animation", duration=132, age_rating="12+", release_date="2025-11-07",
+        poster_url=None,
+        description="Майлз Моралес сталкивается с последствиями разрушения канона мультивселенной.",
+        director="Жуакин душ Сантуш", popularity=9.0, min_shows_per_day=0, max_shows_per_day=5, is_active=True,
+    ),
+    dict(
+        id="11", title="Аватар: Огонь и пепел", original_title="Avatar: Fire and Ash",
+        genre="sci-fi", duration=185, age_rating="12+", release_date="2025-12-19",
+        poster_url=None,
+        description="Новая глава саги о Пандоре и противостоянии кланов На'ви.",
+        director="Джеймс Кэмерон", popularity=9.0, min_shows_per_day=0, max_shows_per_day=4, is_active=True,
+    ),
+    dict(
+        id="12", title="Как приручить дракона", original_title="How to Train Your Dragon",
+        genre="family", duration=116, age_rating="6+", release_date="2025-06-13",
+        poster_url=None,
+        description="Игровая адаптация истории Иккинга и Беззубика.",
+        director="Дин ДеБлуа", popularity=8.0, min_shows_per_day=0, max_shows_per_day=6, is_active=True,
+    ),
+    dict(
+        id="13", title="Формула-1", original_title="F1",
+        genre="drama", duration=150, age_rating="12+", release_date="2025-06-27",
+        poster_url=None,
+        description="Ветеран автоспорта возвращается в королевские гонки и становится наставником новичка.",
+        director="Джозеф Косински", popularity=7.0, min_shows_per_day=0, max_shows_per_day=4, is_active=True,
+    ),
+    dict(
+        id="14", title="Носферату", original_title="Nosferatu",
+        genre="horror", duration=134, age_rating="18+", release_date="2025-01-03",
+        poster_url=None,
+        description="Готическая история о древнем вампире и одержимости.",
+        director="Роберт Эггерс", popularity=7.0, min_shows_per_day=0, max_shows_per_day=3, is_active=True,
+    ),
+    dict(
+        id="15", title="Вонки 2", original_title="Wonka 2",
+        genre="family", duration=118, age_rating="6+", release_date="2025-12-05",
+        poster_url=None,
+        description="Новые приключения Вилли Вонки и его фабрики чудес.",
+        director="Пол Кинг", popularity=8.0, min_shows_per_day=0, max_shows_per_day=5, is_active=True,
+    ),
+    dict(
+        id="16", title="Трон: Арес", original_title="TRON: Ares",
+        genre="sci-fi", duration=142, age_rating="12+", release_date="2025-10-10",
+        poster_url=None,
+        description="Программа из цифрового мира попадает в реальность, меняя правила игры.",
+        director="Йоахим Рённинг", popularity=7.0, min_shows_per_day=0, max_shows_per_day=4, is_active=True,
+    ),
 ]
 
-_DEMO_HALLS = [
-    dict(id="h1", name="Зал 1 — Большой", capacity=300, hall_type="2D",
-         cleaning_minutes=15, floor=1, open_time="09:00", close_time="23:30"),
-    dict(id="h2", name="Зал 2 — IMAX", capacity=200, hall_type="IMAX",
-         cleaning_minutes=20, floor=2, open_time="10:00", close_time="23:00"),
-    dict(id="h3", name="Зал 3 — Комфорт", capacity=120, hall_type="3D",
-         cleaning_minutes=15, floor=1, open_time="09:00", close_time="23:30"),
-    dict(id="h4", name="Зал 4 — VIP", capacity=50, hall_type="VIP",
-         cleaning_minutes=20, floor=3, open_time="11:00", close_time="23:00"),
-]
+_DEMO_HALLS: list[dict] = []
 
 
 async def seed_if_empty() -> None:
@@ -139,21 +186,18 @@ async def _seed_organizations(db: AsyncSession) -> None:
         id="org_cinema_park",
         name="Синема Парк Москва",
         slug="cinema-park-moscow",
-        description="Крупнейшая сеть кинотеатров в Москве. 8 залов, включая IMAX и VIP.",
+        description="Крупнейшая сеть кинотеатров в Москве. 5 залов, включая IMAX и VIP.",
         address="Москва, ул. Охотный Ряд, д. 2",
     )
     db.add(org1)
 
-    # Залы Синема Парк (8 залов)
+    # Залы Синема Парк (5 залов)
     org1_halls = [
         Hall(id="cp_h1", org_id="org_cinema_park", name="Зал 1 — Большой", capacity=350, hall_type="2D", cleaning_minutes=15, floor=1, open_time="09:00", close_time="23:30"),
         Hall(id="cp_h2", org_id="org_cinema_park", name="Зал 2 — IMAX", capacity=280, hall_type="IMAX", cleaning_minutes=20, floor=1, open_time="10:00", close_time="23:00"),
         Hall(id="cp_h3", org_id="org_cinema_park", name="Зал 3 — Комфорт", capacity=150, hall_type="3D", cleaning_minutes=15, floor=2, open_time="09:00", close_time="23:30"),
         Hall(id="cp_h4", org_id="org_cinema_park", name="Зал 4 — VIP", capacity=60, hall_type="VIP", cleaning_minutes=20, floor=3, open_time="11:00", close_time="23:00"),
         Hall(id="cp_h5", org_id="org_cinema_park", name="Зал 5 — Стандарт", capacity=200, hall_type="2D", cleaning_minutes=15, floor=1, open_time="09:00", close_time="23:30"),
-        Hall(id="cp_h6", org_id="org_cinema_park", name="Зал 6 — Dolby Atmos", capacity=180, hall_type="3D", cleaning_minutes=20, floor=2, open_time="10:00", close_time="23:00"),
-        Hall(id="cp_h7", org_id="org_cinema_park", name="Зал 7 — Детский", capacity=100, hall_type="2D", cleaning_minutes=15, floor=1, open_time="09:00", close_time="21:00"),
-        Hall(id="cp_h8", org_id="org_cinema_park", name="Зал 8 — Премиум", capacity=80, hall_type="VIP", cleaning_minutes=20, floor=3, open_time="12:00", close_time="23:30"),
     ]
     for h in org1_halls:
         db.add(h)
@@ -175,18 +219,16 @@ async def _seed_organizations(db: AsyncSession) -> None:
         id="org_karo_spb",
         name="Каро Фильм СПб",
         slug="karo-film-spb",
-        description="Сеть кинотеатров Каро Фильм в Санкт-Петербурге. 5 залов с современным оборудованием.",
+        description="Сеть кинотеатров Каро Фильм в Санкт-Петербурге. 3 зала с современным оборудованием.",
         address="Санкт-Петербург, Невский пр., д. 114",
     )
     db.add(org2)
 
-    # Залы Каро Фильм (5 залов)
+    # Залы Каро Фильм (3 зала)
     org2_halls = [
         Hall(id="kf_h1", org_id="org_karo_spb", name="Зал 1 — Основной", capacity=250, hall_type="2D", cleaning_minutes=15, floor=1, open_time="09:00", close_time="23:00"),
         Hall(id="kf_h2", org_id="org_karo_spb", name="Зал 2 — IMAX", capacity=220, hall_type="IMAX", cleaning_minutes=20, floor=1, open_time="10:00", close_time="23:00"),
         Hall(id="kf_h3", org_id="org_karo_spb", name="Зал 3 — 3D", capacity=130, hall_type="3D", cleaning_minutes=15, floor=2, open_time="09:00", close_time="23:00"),
-        Hall(id="kf_h4", org_id="org_karo_spb", name="Зал 4 — Комфорт", capacity=90, hall_type="VIP", cleaning_minutes=20, floor=2, open_time="11:00", close_time="23:00"),
-        Hall(id="kf_h5", org_id="org_karo_spb", name="Зал 5 — Мини", capacity=70, hall_type="2D", cleaning_minutes=15, floor=1, open_time="09:00", close_time="22:00"),
     ]
     for h in org2_halls:
         db.add(h)
@@ -201,4 +243,4 @@ async def _seed_organizations(db: AsyncSession) -> None:
         db.add(u)
 
     await db.commit()
-    logger.info("Seeded 2 demo organizations: Синема Парк Москва (8 halls, 5 users), Каро Фильм СПб (5 halls, 3 users)")
+    logger.info("Seeded 2 demo organizations: Синема Парк Москва (5 halls, 5 users), Каро Фильм СПб (3 halls, 3 users)")

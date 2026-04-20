@@ -10,7 +10,7 @@ engine.py (главный оркестратор генерации распис
 
 Усовершенствования из статьи SilverScheduler:
   - Штраф за смену фильма (Q)
-  - Anti-crowding по этажам
+  - Anti-crowding по этажам — удалён (не актуален для РФ, все залы на одном этаже)
   - Staggering (равномерность старта)
   - Разнос одного фильма в разных залах
   - Часовые коэффициенты спроса из Table 2
@@ -119,7 +119,6 @@ class CinemaScheduler:
         Проверяет:
           - Кол-во смен фильмов (screen changes, penalty Q)
           - Staggering: макс. пауза без начала нового фильма
-          - Anti-crowding: старты на одном этаже в один time-block
           - Same-movie stagger: разнос одного фильма в разных залах
           - Покрытие фильмов: все ли фильмы из пула показаны
           - Early closure: доля залов с ранним завершением
@@ -131,10 +130,10 @@ class CinemaScheduler:
             "total_attendance": round(schedule.total_attendance),
             "total_movie_switches": 0,
             "stagger_violations": 0,
-            "crowding_violations": 0,
             "same_movie_stagger_violations": 0,
             "early_closure_violations": 0,
             "movies_coverage": {},
+            "diversity_per_day": {},
             "lower_bound": 0.0,
             "optimality_gap_pct": 0.0,
         }
@@ -156,26 +155,6 @@ class CinemaScheduler:
                 if gap > max_gap:
                     stagger_violations += 1
         report["stagger_violations"] = stagger_violations
-
-        # Anti-crowding
-        block = self.config.crowding_block_minutes
-        peak_start = self.config.crowding_peak_start
-        peak_end = self.config.crowding_peak_end
-        crowding_violations = 0
-        for day in self.config.days:
-            floor_block_starts: dict[tuple[int, int], int] = {}
-            for hds in schedule.hall_day_schedules:
-                if hds.day != day:
-                    continue
-                for show in hds.shows:
-                    if peak_start <= show.start_minutes < peak_end:
-                        block_idx = show.start_minutes // block
-                        key = (hds.hall.floor, block_idx)
-                        floor_block_starts[key] = floor_block_starts.get(key, 0) + 1
-            for count in floor_block_starts.values():
-                if count > 1:
-                    crowding_violations += count - 1
-        report["crowding_violations"] = crowding_violations
 
         # Same-movie stagger across halls
         min_gap = self.config.min_gap_same_movie_diff_halls
@@ -213,6 +192,13 @@ class CinemaScheduler:
             ],
         }
 
+        # Diversity per day
+        diversity_per_day = {}
+        for day in self.config.days:
+            day_movies = {s.movie.id for s in schedule.shows_for_day(day)}
+            diversity_per_day[day] = len(day_movies)
+        report["diversity_per_day"] = diversity_per_day
+
         # Early closure: доля залов, завершающих до early_close_time
         ec_time = self.config.early_close_time_minutes
         r_frac = self.config.early_close_fraction
@@ -247,8 +233,6 @@ class CinemaScheduler:
               f"(штраф: {r['total_movie_switches'] * self.config.movie_switch_penalty:,.0f} ₽)")
         print(f"  Stagger нарушения:   {r['stagger_violations']} "
               f"(gap > {self.config.max_gap_between_starts} мин)")
-        print(f"  Crowding нарушения:  {r['crowding_violations']} "
-              f"(>1 старт на этаже в {self.config.crowding_block_minutes} мин)")
         print(f"  Same-movie stagger:  {r['same_movie_stagger_violations']} "
               f"(<{self.config.min_gap_same_movie_diff_halls} мин в разных залах)")
         cov = r["movies_coverage"]
@@ -257,6 +241,11 @@ class CinemaScheduler:
             print(f"  Не показаны:     {', '.join(cov['missing_movies'])}")
         else:
             print(f"  Все фильмы показаны")
+        # Diversity per day
+        div = r["diversity_per_day"]
+        avg_div = sum(div.values()) / len(div) if div else 0
+        min_div = min(div.values()) if div else 0
+        print(f"  Разнообразие/день:   avg={avg_div:.1f}, min={min_div} из {cov['total_movies_available']}")
         # Early closure
         print(f"  Early closure наруш.: {r['early_closure_violations']} "
               f"(требуется {self.config.early_close_fraction:.0%} залов "

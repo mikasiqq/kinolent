@@ -177,7 +177,6 @@ function buildRequestBody(config: GenerationConfig, movies: Movie[]) {
       staggerMinutes: config.staggerMinutes,
       maxColumnsPerIteration: config.maxColumnsPerIteration,
       lpTimeLimitSeconds: config.lpTimeLimitSeconds,
-      antiCrowding: config.antiCrowding,
       childrenDaytimeOnly: config.childrenDaytimeOnly,
     },
     movies: movies

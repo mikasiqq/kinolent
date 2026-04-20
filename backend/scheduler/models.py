@@ -19,6 +19,8 @@ class SolverMetrics:
     lp_bound: float = 0.0        # верхняя граница (LP-релаксация)
     ip_objective: float = 0.0    # значение ЦФ целочисленного решения
     gap_pct: float = 0.0         # gap оптимальности (%)
+    columns_generated: int = 0   # общее кол-во сгенерированных столбцов
+    is_greedy_fallback: bool = False  # True если MILP не решился и использован greedy
 
 
 
@@ -78,7 +80,7 @@ class Hall:
     capacity: int                           # кол-во мест
     hall_type: HallType = HallType.STANDARD_2D
     cleaning_minutes: int = 15              # время уборки между сеансами
-    floor: int = 1                          # этаж (для ограничения anti-crowding)
+    floor: int = 1                          # этаж зала
     open_time: time = field(default_factory=lambda: time(9, 0))
     close_time: time = field(default_factory=lambda: time(23, 30))
 
@@ -249,16 +251,12 @@ class SchedulerConfig:
     # Разнообразие расписания
     max_same_movie_per_hall_day: int = 2    # макс. повторений одного фильма в зале за день
     ensure_all_movies_shown: bool = True    # каждый фильм из пула должен быть показан хотя бы 1 раз/день
+    max_shows_per_movie_per_day: int = 0    # макс. показов одного фильма за день по ВСЕМ залам (0 = авто)
+    diversity_bonus_weight: float = 10000.0  # бонус в ЦФ за каждый уникальный фильм в расписании дня
 
     # ── Штрафы из статьи SilverScheduler ──
     movie_switch_penalty: float = 100.0     # штраф Q за каждую смену фильма на экране
     stagger_penalty: float = 10.0           # штраф R за нарушение max_gap_between_starts
-
-    # ── Anti-crowding (constraint 5 в статье) ──
-    # В час-пик на одном этаже не более 1 фильма стартует в одном тайм-блоке
-    crowding_block_minutes: int = 10        # длительность блока анти-краудинга
-    crowding_peak_start: int = 1080         # 18:00 — начало «часа-пик» (минуты от полуночи)
-    crowding_peak_end: int = 1380           # 23:00 — конец «часа-пик»
 
     # ── Stagger одного фильма в разных залах ──
     min_gap_same_movie_diff_halls: int = 60  # мин. разница (мин) между началами одного фильма в разных залах

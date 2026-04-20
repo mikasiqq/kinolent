@@ -227,20 +227,6 @@ const ConfigurationView = observer(function ConfigurationView({
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/20 p-4 transition-colors hover:bg-muted/40">
                 <div>
-                  <p className="text-sm font-medium">Anti-crowding</p>
-                  <p className="text-xs text-muted-foreground">
-                    Распределение зрителей по этажам
-                  </p>
-                </div>
-                <Switch
-                  checked={config.antiCrowding}
-                  onCheckedChange={(v) =>
-                    scheduleStore.updateConfig({ antiCrowding: v })
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/20 p-4 transition-colors hover:bg-muted/40">
-                <div>
                   <p className="text-sm font-medium">
                     Детские фильмы — только днём
                   </p>
@@ -388,19 +374,6 @@ const ConfigurationView = observer(function ConfigurationView({
                   <span>Интервал сдвига</span>
                   <span className="font-medium text-foreground">
                     {config.staggerMinutes} мин
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Anti-crowding</span>
-                  <span
-                    className={cn(
-                      "font-medium",
-                      config.antiCrowding
-                        ? "text-emerald-600"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {config.antiCrowding ? "Вкл" : "Выкл"}
                   </span>
                 </div>
               </div>
@@ -563,9 +536,13 @@ function CompletedView({
         <div className="rounded-xl bg-violet-50 dark:bg-violet-900/20 p-5 text-center">
           <Zap className="h-7 w-7 mx-auto text-violet-500 mb-2" />
           <p className="text-3xl font-bold">
-            {schedule.metrics.gapPct.toFixed(1)}%
+            {schedule.metrics.gapPct === -1
+              ? "Greedy"
+              : `${schedule.metrics.gapPct.toFixed(1)}%`}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">gap</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {schedule.metrics.gapPct === -1 ? "fallback" : "gap"}
+          </p>
         </div>
       </div>
 

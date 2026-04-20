@@ -130,44 +130,41 @@ class ColumnGenerator:
                 return show.predicted_revenue - dual_prices.get(n.movie_id, 0.0)
             return show.predicted_revenue
 
-        # DFS с ограничением глубины + лимитом
-        stack: list[list[_ScheduleNode]] = [[n] for n in nodes if n.start_minute == hall_open
-                                     or n.start_minute < hall_open + 60]
-        # Добавляем пути, начинающиеся с каждого узла
-        for n in nodes:
-            if [n] not in stack:
-                stack.append([n])
-            if len(stack) > limit * 2:
-                break
+        # DFS с ограничением глубины + лимитом итераций
+        # Начинаем с узлов в первом часе работы зала
+        start_nodes = sorted(
+            [n for n in nodes if n.start_minute < hall_open + 60],
+            key=_node_value, reverse=True,
+        )
+        stack: list[list[_ScheduleNode]] = [[n] for n in start_nodes]
 
-        visited_paths: set[tuple[_ScheduleNode, ...]] = set()
+        max_same = self.config.max_same_movie_per_hall_day
+        # Жёсткий лимит итераций DFS — предотвращает зависание при большом графе
+        max_iterations = limit * 50
+        # Ограничиваем ветвление: top-K соседей
+        branch_k = min(8, max(3, 30 // max(len(compatible_movies), 1)))
+        iteration = 0
 
-        while stack and len(columns) < limit:
+        while stack and len(columns) < limit and iteration < max_iterations:
+            iteration += 1
             path = stack.pop()
             current = path[-1]
 
             # Попытка «закрыть» путь — добавить как столбец
-            path_key = tuple(path)
-            if path_key not in visited_paths and len(path) >= 1:
-                visited_paths.add(path_key)
+            if len(path) >= 2:  # минимум 2 сеанса для полезного столбца
                 schedule = self._path_to_schedule(path, node_show, hall, day)
                 if schedule.is_feasible():
                     columns.append(schedule)
 
             # Расширить путь
             neighbors = adjacency.get(current, [])
-            # Ограничиваем ветвление: берём top-K соседей по ценности
-            scored = sorted(neighbors, key=_node_value, reverse=True)[:8]
-            max_same = self.config.max_same_movie_per_hall_day
+            scored = sorted(neighbors, key=_node_value, reverse=True)[:branch_k]
             for nxt in scored:
                 # Проверяем лимит повторений одного фильма в цепочке
                 movie_count = sum(1 for n in path if n.movie_id == nxt.movie_id)
                 if movie_count >= max_same:
                     continue
-                new_path = path + [nxt]
-                new_key = tuple(new_path)
-                if new_key not in visited_paths:
-                    stack.append(new_path)
+                stack.append(path + [nxt])
 
         # 4. Отсортировать по суммарной ценности (revenue − Q·switches, или reduced cost)
         Q = self.config.movie_switch_penalty
@@ -197,6 +194,7 @@ class ColumnGenerator:
         day: int,
         preferred_movie: Optional[Movie] = None,
         max_same_movie: int = 2,
+        excluded_movie_ids: Optional[set[str]] = None,
     ) -> HallDaySchedule:
         """
         Жадно строит одну «хорошую» цепочку: на каждом шаге выбирает
@@ -207,8 +205,11 @@ class ColumnGenerator:
         Args:
             preferred_movie: если задан, первый сеанс будет с этим фильмом
             max_same_movie: макс. повторений одного фильма в цепочке
+            excluded_movie_ids: множество id фильмов, которые нельзя ставить
         """
         compatible = [m for m in self.movies if hall.can_show(m)]
+        if excluded_movie_ids:
+            compatible = [m for m in compatible if m.id not in excluded_movie_ids]
         if not compatible:
             return HallDaySchedule(hall=hall, day=day, shows=[])
 

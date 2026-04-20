@@ -99,12 +99,12 @@ def config_from_request(req: GenerateRequest, hall_types: list[str] | None = Non
         max_columns_per_hall_day=req.max_columns_per_iteration,
         max_cg_iterations=30,
         days=list(range(req.days)),
-        ensure_all_movies_shown=False,  # отключаем, чтобы не делать LP недопустимым
+        ensure_all_movies_shown=True,
+        max_shows_per_movie_per_day=0,  # авто: рассчитывается из числа залов и фильмов
         # SilverScheduler параметры
         movie_switch_penalty=100.0,
         stagger_penalty=50.0,           # смягчаем штраф
         max_gap_between_starts=60,      # увеличиваем допустимый gap
-        crowding_block_minutes=10 if req.anti_crowding else 9999,
         min_gap_same_movie_diff_halls=60,
         children_movie_latest_start=1080 if req.children_daytime_only else 1410,
         children_preferred_latest_start=840,

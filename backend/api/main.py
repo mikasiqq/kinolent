@@ -367,7 +367,6 @@ def _build_schedule_out(
         total_attendance=quality["total_attendance"],
         total_movie_switches=quality["total_movie_switches"],
         stagger_violations=quality["stagger_violations"],
-        crowding_violations=quality["crowding_violations"],
         same_movie_stagger_violations=quality["same_movie_stagger_violations"],
         early_closure_violations=quality["early_closure_violations"],
         optimality_gap_pct=quality["optimality_gap_pct"],
@@ -376,6 +375,9 @@ def _build_schedule_out(
     # Защита от inf/nan (не сериализуются в JSON)
     import math
     gap = metrics.gap_pct if math.isfinite(metrics.gap_pct) else 0.0
+    is_greedy = getattr(metrics, 'is_greedy_fallback', False)
+    if is_greedy:
+        gap = -1.0  # индикатор greedy fallback для фронтенда
     lp_b = metrics.lp_bound if math.isfinite(metrics.lp_bound) else 0.0
     ip_o = metrics.ip_objective if math.isfinite(metrics.ip_objective) else 0.0
     q_gap = quality["optimality_gap_pct"]
@@ -396,7 +398,7 @@ def _build_schedule_out(
             ip_objective=round(ip_o, 2),
             gap_pct=round(gap, 2),
             generation_time_ms=round(elapsed_ms, 1),
-            columns_generated=0,
+            columns_generated=metrics.columns_generated if hasattr(metrics, 'columns_generated') else 0,
         ),
         quality_report=quality_report,
     )
