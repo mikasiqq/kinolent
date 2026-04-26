@@ -172,7 +172,7 @@ const ConfigurationView = observer(function ConfigurationView({
                   id="days"
                   type="number"
                   min={1}
-                  max={14}
+                  max={7}
                   value={config.days}
                   onChange={(e) =>
                     scheduleStore.updateConfig({
