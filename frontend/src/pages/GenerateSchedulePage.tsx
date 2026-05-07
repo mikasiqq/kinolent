@@ -82,7 +82,11 @@ export const GenerateSchedulePage = observer(function GenerateSchedulePage() {
       </div>
 
       {generationStatus === "generating" ? (
-        <GeneratingView progress={generationProgress} steps={generationSteps} />
+        <GeneratingView
+          progress={generationProgress}
+          steps={generationSteps}
+          onCancel={() => scheduleStore.cancelGeneration()}
+        />
       ) : generationStatus === "completed" ? (
         <CompletedView
           onView={handleViewSchedule}
@@ -407,9 +411,11 @@ const ConfigurationView = observer(function ConfigurationView({
 function GeneratingView({
   progress,
   steps,
+  onCancel,
 }: {
   progress: number;
   steps: { label: string; description: string; status: string }[];
+  onCancel: () => void;
 }) {
   return (
     <div className="max-w-2xl mx-auto space-y-8 py-8">
@@ -436,6 +442,18 @@ function GeneratingView({
           </span>
         </div>
         <Progress value={progress} className="h-3" />
+      </div>
+
+      {/* Кнопка отмены */}
+      <div className="flex justify-center">
+        <Button
+          variant="outline"
+          size="lg"
+          className="rounded-xl"
+          onClick={onCancel}
+        >
+          Остановить генерацию
+        </Button>
       </div>
 
       {/* Шаги */}

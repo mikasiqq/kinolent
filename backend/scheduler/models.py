@@ -65,6 +65,11 @@ class Movie:
     is_children: bool = False               # детский фильм (показ только днём)
 
     @property
+    def is_adult_rated(self) -> bool:
+        """Фильм с возрастным рейтингом 16+ или 18+."""
+        return self.age_rating in (AgeRating.RATING_16, AgeRating.RATING_18)
+
+    @property
     def total_slot_minutes(self) -> int:
         """Полная длительность «слота»: реклама + фильм."""
         return self.duration_minutes + self.ad_block_minutes
@@ -265,6 +270,9 @@ class SchedulerConfig:
     children_movie_latest_start: int = 1080  # 18:00 — крайнее время старта детского фильма (мин от полуночи)
     children_preferred_latest_start: int = 840  # 14:00 — «предпочтительный» крайний старт (для утренних показов)
     children_weekday_morning_boost: float = 2.5  # буст спроса на детские утренние сеансы (будни, до 14:00)
+
+    # ── Фильмы 16+ / 18+ ──
+    adult_movie_earliest_start: int = 840    # 14:00 — самое раннее время старта для фильмов 16+/18+ (мин от полуночи)
 
     # ── Раннее завершение (constraint 7 в статье) ──
     early_close_fraction: float = 0.3       # доля залов, где последний сеанс заканчивается до early_close_time

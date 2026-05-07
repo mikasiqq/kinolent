@@ -87,8 +87,9 @@ class ColumnGenerator:
         hall_close = hall.close_time.hour * 60 + hall.close_time.minute
         slot = self.config.time_slot_minutes
         children_latest = self.config.children_movie_latest_start
+        adult_earliest = self.config.adult_movie_earliest_start
 
-        # 1. Построить узлы (фильтрация: детские — только до children_latest)
+        # 1. Построить узлы (фильтрация: детские — только до children_latest, 16+/18+ — не раньше adult_earliest)
         nodes: list[_ScheduleNode] = []
         node_show: dict[_ScheduleNode, Show] = {}
         for movie in compatible_movies:
@@ -96,6 +97,10 @@ class ColumnGenerator:
             while t + movie.total_slot_minutes <= hall_close:
                 # Детские фильмы не ставим на вечерние слоты
                 if movie.is_children and t >= children_latest:
+                    t += slot
+                    continue
+                # Фильмы 16+/18+ не ставим на утренние слоты
+                if movie.is_adult_rated and t < adult_earliest:
                     t += slot
                     continue
                 node = _ScheduleNode(start_minute=t, movie_id=movie.id)
@@ -218,6 +223,7 @@ class ColumnGenerator:
         slot = self.config.time_slot_minutes
         Q = self.config.movie_switch_penalty
         children_latest = self.config.children_movie_latest_start
+        adult_earliest = self.config.adult_movie_earliest_start
 
         shows: list[Show] = []
         current_time = hall_open
@@ -239,6 +245,11 @@ class ColumnGenerator:
             available = [
                 m for m in available
                 if not (m.is_children and current_time >= children_latest)
+            ]
+            # Фильтруем фильмы 16+/18+ из утренних слотов
+            available = [
+                m for m in available
+                if not (m.is_adult_rated and current_time < adult_earliest)
             ]
             if not available:
                 break

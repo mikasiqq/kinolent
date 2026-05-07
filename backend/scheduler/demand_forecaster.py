@@ -184,6 +184,10 @@ class DemandForecaster:
         if movie.is_children and start_minutes >= self.config.children_movie_latest_start:
             demand = 0.0
 
+        # Фильмы 16+/18+: нулевой спрос в утреннее время
+        if movie.is_adult_rated and start_minutes < self.config.adult_movie_earliest_start:
+            demand = 0.0
+
         # Детские фильмы: буст утренних/дневных сеансов на будни (9:00-14:00)
         # Обоснование: детская аудитория (каникулы, подвоз) преимущественно
         # приходит с утра; hourly factors из Table 2 не учитывают это.
